@@ -40,7 +40,7 @@ const l1 = make_one_body_Lindbladian(hx*sx+hz*sz,sqrt(γ)*sm)
 
 display(l1)
 
-N_MC::Int64 = 10000#10*4*χ^2
+N_MC::Int64 = 1000#10*4*χ^2
 δ::Float64 = 0.01
 F::Float64 = 1.0#0.9999
 ϵ::Float64 = parse(Float64,ARGS[4])
@@ -126,7 +126,12 @@ MPI.Bcast!(A, 0, mpi_cache.comm)
 sampler = MetropolisSampler(N_MC, 5)
 optimizer = TDVP(sampler, A, l1, ϵ, params)
 
+list_A = [A]
 
+#list_grad = [zeros(ComplexF64,params.χ,params.χ,4)]
+#println(typeof(list_grad))
+#error()
+#list_grad = Vector{Array{ComplexF64,3}}(undef, params.χ,params.χ,4)
 if mpi_cache.rank == 0
     global t0 = time()
 
@@ -160,16 +165,16 @@ for k in last_iteration_step:N_iterations
         if mpi_cache.rank == 0
             global a = time()
         end
-        ComputeGradient!(optimizer)
-        #ComputeGradient!(optimizer, basis)
+        #ComputeGradient!(optimizer)
+        NonMarkovianComputeGradient!(optimizer, list_A, δ, k)
         if mpi_cache.rank == 0
             global b = time()
         end
         MPI_mean!(optimizer,mpi_cache)
         if mpi_cache.rank == 0
             global c = time()
-            Optimize!(optimizer,δ*F^(k))
-            #Optimize!(optimizer,basis,δ*F^(k))
+            #Optimize!(optimizer,δ*F^(k))
+            NonMarkovianOptimize!(optimizer, δ, k, list_A)
             global d = time()
         end
         MPI.Bcast!(optimizer.A, 0, mpi_cache.comm)
