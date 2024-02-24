@@ -174,8 +174,8 @@ function MPO_Metropolis_burn_in(optimizer)
     cache=optimizer.workspace
     
     # Initialize random sample and calculate L_set for that sample:
-    #sample::Projector = Projector(rand(Bool, params.N),rand(Bool, params.N))
-    sample::Projector = Projector(Bool[0], Bool[0])
+    sample::Projector = Projector(rand(Bool, params.N),rand(Bool, params.N))
+    #sample::Projector = Projector(Bool[0], Bool[0])
     cache.L_set = L_MPO_strings!(cache.L_set, sample, A, params, cache)
 
     #display(sample)
