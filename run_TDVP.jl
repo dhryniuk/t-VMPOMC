@@ -36,7 +36,8 @@ hx = parse(Float64,ARGS[2])
 
 params = Parameters(N,χ,Jx,Jy,J,hx,hz,γ,γ_d,α)
 
-const l1 = make_one_body_Lindbladian(hx*sx+hz*sz,sqrt(γ)*sm)
+#const l1 = make_one_body_Lindbladian(hx*sx+hz*sz,sqrt(γ)*sm)
+const l1 = make_one_body_Lindbladian(sqrt(γ)*sm)
 
 display(l1)
 
@@ -64,14 +65,14 @@ if mpi_cache.rank == 0
         close(path)
 
         Random.seed!(0)
-        A_init=zeros(ComplexF64, χ,χ,2,2)#+0.001*rand(ComplexF64, χ,χ,2,2)
-        A_init[1, 1, 1, 1] = 0.98
+        A_init=zeros(ComplexF64, χ,χ,2,2)+0.001*rand(ComplexF64, χ,χ,2,2)
+        A_init[1, 1, 1, 1] = 0.9 #0.98
         #A_init[1, 2, 1, 1] = 0
         #A_init[2, 1, 1, 1] = 0
         #A_init[2, 2, 1, 1] = 1
-        A_init[1, 1, 2, 1] = 0.02
-        A_init[1, 1, 1, 2] = 0.02
-        A_init[1, 1, 2, 2] = 0.02
+        A_init[1, 1, 2, 1] = 0.1
+        A_init[1, 1, 1, 2] = 0.1
+        A_init[1, 1, 2, 2] = 0.1
         #display(A_init)
         #error()
         A=deepcopy(A_init)

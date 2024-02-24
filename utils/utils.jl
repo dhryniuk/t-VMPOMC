@@ -1,4 +1,4 @@
-export make_density_matrix, adaptive_step_size, make_one_body_Lindbladian
+export make_density_matrix, adaptive_step_size, make_one_body_Lindbladian, make_one_body_Hamiltonian
 export ⊗, id, sx, sy, sz, sp, sm, generate_bit_basis
 #export dINDEX
 
@@ -89,10 +89,14 @@ function make_density_matrix(params, A, basis)
     return ρ
 end
 
-function make_one_body_Lindbladian(H, Γ)
+function make_one_body_Hamiltonian(H)
     L_H = -1im*(H⊗id - id⊗transpose(H))
+    return L_H
+end
+
+function make_one_body_Lindbladian(Γ)
     L_D = Γ⊗conj(Γ) - (conj(transpose(Γ))*Γ)⊗id/2 - id⊗(transpose(Γ)*conj(Γ))/2
-    return L_H + L_D
+    return L_D
 end
 
 function make_two_body_Lindblad_Hamiltonian(A, B)

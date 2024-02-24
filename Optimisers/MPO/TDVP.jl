@@ -72,9 +72,9 @@ function Initialize!(optimizer::TDVP{T}) where {T<:Complex{<:AbstractFloat}}
     optimizer.workspace = set_workspace(optimizer.A, optimizer.params)
 end
 
-function TDVP_one_body_Lindblad_term!(local_L::T, sample::Projector, j::UInt8, optimizer::TDVPl1{T}) where {T<:Complex{<:AbstractFloat}} 
+function TDVP_one_body_Lindblad_term!(l1, local_L::T, sample::Projector, j::UInt8, optimizer::TDVPl1{T}) where {T<:Complex{<:AbstractFloat}} 
 
-    l1 = optimizer.l1
+    #l1 = optimizer.l1
     A = optimizer.A
     params = optimizer.params
     cache = optimizer.workspace
@@ -95,9 +95,9 @@ function TDVP_one_body_Lindblad_term!(local_L::T, sample::Projector, j::UInt8, o
     return local_L
 end
 
-function TDVP_one_body_Lindblad_term(A, sample::Projector, j::UInt8, optimizer::TDVPl1{T}) where {T<:Complex{<:AbstractFloat}} 
+function TDVP_one_body_Lindblad_term(l1, A, sample::Projector, j::UInt8, optimizer::TDVPl1{T}) where {T<:Complex{<:AbstractFloat}} 
 
-    l1 = optimizer.l1
+    #l1 = optimizer.l1
     params = optimizer.params
     cache = optimizer.workspace
 
@@ -144,7 +144,7 @@ function SweepLindblad!(sample::Projector, ρ_sample::T, optimizer::TDVPl1{T}) w
 
     #Calculate L∂L*:
     for j::UInt8 in 1:params.N
-        temp_local_L = TDVP_one_body_Lindblad_term!(temp_local_L, sample, j, optimizer)
+        temp_local_L = TDVP_one_body_Lindblad_term!(optimizer.l1, temp_local_L, sample, j, optimizer)
     end
 
     temp_local_L  /= ρ_sample
@@ -162,6 +162,7 @@ function NonMarkovianSweepLindblad!(sample::Projector, ρ_sample::T, optimizer::
     temp_local_L::T = 0
 
     kernel_riemann_sum=0
+    #for k in -200:1:i
     for k in max(1,i-200):i#1:i
         kernel_riemann_sum += δ*K(-δ*(i-k))
     end
@@ -169,9 +170,14 @@ function NonMarkovianSweepLindblad!(sample::Projector, ρ_sample::T, optimizer::
     for k in max(1,i-200):i#1:i
         A=list_A[k]
         for j::UInt8 in 1:params.N
-            temp_local_L += δ*K(-δ*(i-k))*TDVP_one_body_Lindblad_term(A, sample, j, optimizer)/kernel_riemann_sum
+            temp_local_L += δ*K(-δ*(i-k))*TDVP_one_body_Lindblad_term(optimizer.l1, A, sample, j, optimizer)/kernel_riemann_sum
         end
         #println(k, ": ", temp_local_L)
+    end
+    h1 = make_one_body_Hamiltonian(0.5*sx)
+    A=list_A[end]
+    for j::UInt8 in 1:params.N
+        temp_local_L += TDVP_one_body_Lindblad_term(h1, A, sample, j, optimizer)
     end
     temp_local_L /= ρ_sample
     #sleep(5)
@@ -417,8 +423,8 @@ end
 
 
 function K(t::Float64)
-    γ=5
-    return γ*exp(γ*t)
+    λ=5
+    return λ*exp(λ*t)
 end
 
 
