@@ -1,4 +1,4 @@
-export TDVP
+export TDVP, ComputeGradient!, MPI_mean!, Optimize!
 
 
 mutable struct TDVPCache{T} <: OptimizerCache
@@ -30,8 +30,6 @@ function TDVPCache(A::Array{T,3},params::Parameters) where {T<:Complex{<:Abstrac
     )  
     return cache
 end
-
-abstract type TDVP{T} end
 
 mutable struct TDVPl1{T<:Complex{<:AbstractFloat}} <: TDVP{T}
 
