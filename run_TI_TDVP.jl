@@ -36,8 +36,6 @@ hx = parse(Float64,ARGS[2])
 
 params = Parameters(N,χ,Jx,Jy,J,hx,hz,γ,γ_d,α)
 
-
-#Replace by an array of l1's!
 const l1 = make_one_body_Lindbladian(hx*sx+hz*sz,sqrt(γ)*sm)
 
 display(l1)
@@ -66,26 +64,31 @@ if mpi_cache.rank == 0
         close(path)
 
         Random.seed!(0)
-        #A_init = [zeros(ComplexF64, χ,χ,4) for _ in 1:N]
-        A_init = zeros(ComplexF64, N,χ,χ,4)
-        v1 = [0.98,0.02,0.02,0.02]
-        for i in 1:χ
-            A_init[1,1,i,:]=v1
-            A_init[N,i,1,:]=v1
-            for n in 2:N-1
-                for j in 1:χ
-                    A_init[n,j,i,:]=v1
-                end
-            end
-        end
+        A_init=zeros(ComplexF64, χ,χ,2,2)#+0.001*rand(ComplexF64, χ,χ,2,2)
+        A_init[1, 1, 1, 1] = 0.98
+        #A_init[1, 2, 1, 1] = 0
+        #A_init[2, 1, 1, 1] = 0
+        #A_init[2, 2, 1, 1] = 1
+        A_init[1, 1, 2, 1] = 0.02
+        A_init[1, 1, 1, 2] = 0.02
+        A_init[1, 1, 2, 2] = 0.02
+        #display(A_init)
+        #error()
         A = deepcopy(A_init)
-        mpo = MPO(A)
+        mpo = TI_MPO(reshape(A,χ,χ,4))
+
+
+        #A=reshape(A,χ,χ,4)
+        normalize_MPO!(params, mpo)
+
+    #display(A)
 
         sampler = MetropolisSampler(N_MC, 5)
         optimizer = TDVP(sampler, mpo, l1, ϵ, params)
-        normalize_MPO!(params, optimizer)
+
+
+    #display(A)
     else
-        error()
         cd(dir)
         list_of_C = open("list_of_C_chi$(χ)_N$(N)_hx$(hx)_γd$(γ_d).data", "r")
         last_iteration_step=countlines(list_of_C)+1
@@ -106,13 +109,10 @@ if mpi_cache.rank == 0
     d::Float64=0
 else
     Random.seed!(mpi_cache.rank)
-    A = [zeros(ComplexF64, χ,χ,4) for _ in 1:N]
-    mpo = MPO(A)
+    A = Array{ComplexF64}(undef, χ,χ,4)
 end
 MPI.bcast(last_iteration_step, mpi_cache.comm)
-println(typeof(mpo.A))
-println(eltype(mpo.A))
-#MPI.Bcast!(mpo.A, 0, mpi_cache.comm)
+MPI.Bcast!(A, 0, mpi_cache.comm)
 
 sampler = MetropolisSampler(N_MC, 5)
 optimizer = TDVP(sampler, mpo, l1, ϵ, params)
@@ -121,12 +121,16 @@ optimizer = TDVP(sampler, mpo, l1, ϵ, params)
 if mpi_cache.rank == 0
     global t0 = time()
 
-    #Af = reshape(optimizer.mpo.A,χ,χ,2,2) 
-    #Af_dagger = conj.(permutedims(Af,[1,2,4,3]))
+    Af = reshape(optimizer.mpo.A,χ,χ,2,2) 
+    Af_dagger = conj.(permutedims(Af,[1,2,4,3]))
 
-    mx = real(tensor_calculate_magnetization(params,mpo,sx))
-    my = real(tensor_calculate_magnetization(params,mpo,sy))
-    mz = real(tensor_calculate_magnetization(params,mpo,sz))
+    mx = real(tensor_calculate_magnetization(params,Af,sx))
+    my = real(tensor_calculate_magnetization(params,Af,sy))
+    mz = real(tensor_calculate_magnetization(params,Af,sz))
+
+    sxx = real( tensor_calculate_correlation(params,Af,sx))
+    syy = real( tensor_calculate_correlation(params,Af,sy))
+    szz = real( tensor_calculate_correlation(params,Af,sz))
 
     list_of_C = open("list_of_C_chi$(χ)_N$(N)_hx$(hx)_γd$(γ_d).data", "a")
     println(list_of_C, real(optimizer.optimizer_cache.mlL)/N)
@@ -134,6 +138,13 @@ if mpi_cache.rank == 0
     list_of_mag = open("list_of_mag_chi$(χ)_N$(N)_hx$(hx)_γd$(γ_d).data", "a")
     println(list_of_mag, mx, ",", my, ",", mz)
     close(list_of_mag)
+    list_of_P = open("list_of_P_chi$(χ)_N$(N)_hx$(hx)_γd$(γ_d).data", "a")
+    P = real(tensor_purity(params, optimizer.mpo.A))
+    println(list_of_P, P)
+    close(list_of_P)
+    list_of_cor = open("list_of_cor_chi$(χ)_N$(N)_hx$(hx)_γd$(γ_d).data", "a")
+    println(list_of_cor, sxx, ",", syy, ",", szz)
+    close(list_of_cor)
 end
 for k in last_iteration_step:N_iterations
     for i in 1:1
@@ -160,18 +171,23 @@ for k in last_iteration_step:N_iterations
 
     #Record observables:
     if mpi_cache.rank == 0
-        #Af = reshape(optimizer.mpo.A,χ,χ,2,2) 
-        #Af_dagger = conj.(permutedims(Af,[1,2,4,3]))
+        Af = reshape(optimizer.mpo.A,χ,χ,2,2) 
+        Af_dagger = conj.(permutedims(Af,[1,2,4,3]))
 
-        mx = real(tensor_calculate_magnetization(params,mpo,sx))
-        my = real(tensor_calculate_magnetization(params,mpo,sy))
-        mz = real(tensor_calculate_magnetization(params,mpo,sz))
+        mx = real(tensor_calculate_magnetization(params,Af,sx))
+        my = real(tensor_calculate_magnetization(params,Af,sy))
+        mz = real(tensor_calculate_magnetization(params,Af,sz))
+
+        sxx = real( tensor_calculate_correlation(params,Af,sx))
+        syy = real( tensor_calculate_correlation(params,Af,sy))
+        szz = real( tensor_calculate_correlation(params,Af,sz))
 
         o = open("mem.out", "a")
         println(o, "k=$k: ", Base.Sys.free_memory())
         close(o)
 
         if mod(k,10)==1
+
             o = open("Ising_decay_chi$(χ)_N$(N)_hx$(hx).out", "a")
             #redirect_stdout(o)
             println(o,"k=$k: ", real(optimizer.optimizer_cache.mlL)/N, " ; acc_rate=", round(acc*100,sigdigits=2), "%", " \n M_x: ", round(mx,sigdigits=4), " \n M_y: ", round(my,sigdigits=4), " \n M_z: ", round(mz,sigdigits=4))
@@ -182,11 +198,21 @@ for k in last_iteration_step:N_iterations
         list_of_C = open("list_of_C_chi$(χ)_N$(N)_hx$(hx)_γd$(γ_d).data", "a")
         println(list_of_C, real(optimizer.optimizer_cache.mlL)/N)
         close(list_of_C)
+        #list_of_acceptance = open("list_of_acceptance_rates_chi$(χ)_N$(N)_hx$(hx)_γd$(γ_d).data", "a")
+        #println(list_of_acceptance, round(real(optimizer.optimizer_cache.acceptance),digits=6))
+        #close(list_of_acceptance)
         list_of_mag = open("list_of_mag_chi$(χ)_N$(N)_hx$(hx)_γd$(γ_d).data", "a")
         println(list_of_mag, mx, ",", my, ",", mz)
         close(list_of_mag)
+        list_of_P = open("list_of_P_chi$(χ)_N$(N)_hx$(hx)_γd$(γ_d).data", "a")
+        P = real(tensor_purity(params, optimizer.mpo.A))
+        println(list_of_P, P)
+        close(list_of_P)
+        list_of_cor = open("list_of_cor_chi$(χ)_N$(N)_hx$(hx)_γd$(γ_d).data", "a")
+        println(list_of_cor, sxx, ",", syy, ",", szz)
+        close(list_of_cor)
 
-        save("MPO_density_matrix_chi$(χ)_N$(N)_hx$(hx)_γd$(γ_d).jld", "MPO_density_matrix", optimizer.mpo.A)
+        save("MPO_density_matrix_chi$(χ)_N$(N)_hx$(hx)_γd$(γ_d).jld", "MPO_density_matrix", Af)
         #sleep(1)
         #save("MPO_density_matrix_chi$(χ)_N$(N)_hx$(hx)_γd$(γ_d)_backup.jld", "MPO_density_matrix", Af)
         global f = time()
@@ -206,7 +232,5 @@ if mpi_cache.rank == 0
     println(list_of_times, "Sum total: ", f-t0)
     close(list_of_times)
 
-    display(mpo.A[1,:,:,:])
-    display(mpo.A[2,:,:,:])
-    display(mpo.A[3,:,:,:])
+    display(optimizer.mpo.A)
 end

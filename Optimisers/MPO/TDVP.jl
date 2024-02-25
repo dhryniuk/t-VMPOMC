@@ -1,75 +1,67 @@
 export TDVP, ComputeGradient!, MPI_mean!, Optimize!
 
-
-mutable struct TDVPCache{T} <: OptimizerCache
-    #Ensemble averages:
-    L∂L::Array{T,3}
-    ΔLL::Array{T,3}
-
-    #Sums:
-    mlL::T
-    acceptance::Float64#UInt64
-
-    #Gradient:
-    ∇::Array{T,3}
-
-    # Metric tensor:
-    S::Array{T,2}
-    avg_G::Array{T}
-end
-
-function TDVPCache(A::Array{T,3},params::Parameters) where {T<:Complex{<:AbstractFloat}} 
-    cache=TDVPCache(
-        zeros(T,params.χ,params.χ,4),
-        zeros(T,params.χ,params.χ,4),
-        convert(T,0),
-        0.0,#convert(UInt64,0),
-        zeros(T,params.χ,params.χ,4),
-        zeros(T,4*params.χ^2,4*params.χ^2),
-        zeros(T,4*params.χ^2)
-    )  
-    return cache
-end
-
-mutable struct TDVPl1{T<:Complex{<:AbstractFloat}} <: TDVP{T}
-
-    #MPO:
-    #A::Array{T,3}
-    mpo::TI_MPO{T}
-
-    #Sampler:
-    sampler::MetropolisSampler
-
-    #Optimizer:
-    optimizer_cache::TDVPCache{T}#Union{ExactCache{T},Nothing}
-
-    #1-local Lindbladian:
-    l1::Matrix{T}
-
-    #Diagonal operators:
-    ising_op::IsingInteraction
-    dephasing_op::Dephasing
-
-    #Parameters:
-    params::Parameters
-    ϵ::Float64
-
-    #Workspace:
-    workspace::Workspace{T}#Union{workspace,Nothing}
-
-end
-
-function TDVP(sampler::MetropolisSampler, mpo::TI_MPO{T}, l1::Matrix{T}, ϵ::Float64, params::Parameters) where {T<:Complex{<:AbstractFloat}} 
-    optimizer = TDVPl1(mpo, sampler, TDVPCache(mpo.A, params), l1, Ising(), LocalDephasing(), params, ϵ, set_workspace(mpo.A, params))
-    return optimizer
-end
-
-function Initialize!(optimizer::TDVP{T}) where {T<:Complex{<:AbstractFloat}}
+function Initialize!(optimizer::TDVPl1{T}) where {T<:Complex{<:AbstractFloat}}
     optimizer.optimizer_cache = TDVPCache(optimizer.mpo.A, optimizer.params)
     optimizer.workspace = set_workspace(optimizer.mpo.A, optimizer.params)
 end
 
 function TDVP_one_body_Lindblad_term!(local_L::T, sample::Projector, j::UInt8, optimizer::TDVPl1{T}) where {T<:Complex{<:AbstractFloat}} 
+
+    l1 = optimizer.l1
+    A = optimizer.mpo.A
+    params = optimizer.params
+    cache = optimizer.workspace
+
+    s::Matrix{T} = cache.dVEC_transpose[(sample.ket[j],sample.bra[j])]
+    mul!(cache.bra_L_l1, s, l1)
+
+    #Iterate over all 4 one-body vectorized basis Projectors:
+    @inbounds for (i,state) in zip(1:4,TPSC)
+        loc = cache.bra_L_l1[i]
+        if loc!=0
+            #Compute estimator:
+            mul!(cache.loc_1, cache.L_set[j], @view(A[j,:,:,i]))
+            mul!(cache.loc_2, cache.loc_1, cache.R_set[(params.N+1-j)])
+            local_L += loc.*tr(cache.loc_2)
+        end
+    end
+    return local_L
+end
+
+function normalize_MPO!(params::Parameters, optimizer::TDVPl1{T}) where {T<:Complex{<:AbstractFloat}} 
+    A = optimizer.mpo.A
+    cache = optimizer.workspace
+    
+    _MPO = cache.ID
+    for i in 1:params.N
+        _MPO*=(A[i,:,:,1]+A[i,:,:,4])
+    end
+    trMPO = tr(_MPO)^(1/params.N)
+    #for i in 1:params.N
+    #    A[i]./=trMPO
+    #end
+    A./=trMPO
+    optimizer.mpo.A = A
+end
+
+function normalize_MPO!(params::Parameters, optimizer::TI_TDVPl1{T}) where {T<:Complex{<:AbstractFloat}} 
+    A = optimizer.mpo.A
+    _MPO=(A[:,:,1]+A[:,:,4])^params.N
+    A./=tr(_MPO)^(1/params.N)
+    optimizer.mpo.A = A
+end
+
+
+
+
+
+
+function Initialize!(optimizer::TI_TDVPl1{T}) where {T<:Complex{<:AbstractFloat}}
+    optimizer.optimizer_cache = TI_TDVPCache(optimizer.mpo.A, optimizer.params)
+    optimizer.workspace = set_workspace(optimizer.mpo.A, optimizer.params)
+end
+
+function TDVP_one_body_Lindblad_term!(local_L::T, sample::Projector, j::UInt8, optimizer::TI_TDVPl1{T}) where {T<:Complex{<:AbstractFloat}} 
 
     l1 = optimizer.l1
     A = optimizer.mpo.A
@@ -92,7 +84,7 @@ function TDVP_one_body_Lindblad_term!(local_L::T, sample::Projector, j::UInt8, o
     return local_L
 end
 
-function Ising_interaction_energy(ising_op::Ising, sample::Projector, optimizer::TDVPl1{T}) where {T<:Complex{<:AbstractFloat}} 
+function Ising_interaction_energy(ising_op::Ising, sample::Projector, optimizer::TDVP{T}) where {T<:Complex{<:AbstractFloat}} 
     A = optimizer.mpo.A
     params = optimizer.params
 
@@ -108,7 +100,7 @@ function Ising_interaction_energy(ising_op::Ising, sample::Projector, optimizer:
     return -1.0im*params.J*l_int
 end
 
-function SweepLindblad!(sample::Projector, ρ_sample::T, optimizer::TDVPl1{T}) where {T<:Complex{<:AbstractFloat}} 
+function SweepLindblad!(sample::Projector, ρ_sample::T, optimizer::TDVP{T}) where {T<:Complex{<:AbstractFloat}} 
 
     params = optimizer.params
     micro_sample = optimizer.workspace.micro_sample
@@ -126,7 +118,7 @@ function SweepLindblad!(sample::Projector, ρ_sample::T, optimizer::TDVPl1{T}) w
     return temp_local_L
 end
 
-function Update!(optimizer::TDVPl1{T}, sample::Projector) where {T<:Complex{<:AbstractFloat}} #... the ensemble averages etc.
+function Update!(optimizer::TDVP{T}, sample::Projector) where {T<:Complex{<:AbstractFloat}} #... the ensemble averages etc.
 
     params=optimizer.params
     mpo=optimizer.mpo
@@ -139,8 +131,9 @@ function Update!(optimizer::TDVPl1{T}, sample::Projector) where {T<:Complex{<:Ab
 
     ρ_sample::T = trMPO(params, sample, mpo)
     cache.L_set = L_MPO_strings!(cache.L_set, sample, mpo, params, cache)
-    cache.Δ = ∂MPO(sample, cache.L_set, cache.R_set, params, cache)./ρ_sample
-
+    cache.Δ = ∂MPO(sample, cache.L_set, cache.R_set, params, cache, optimizer.mpo)./ρ_sample
+    #display(size(cache.Δ))
+    #error()
 #display(sample)
 #display(ρ_sample)
 #display(cache.Δ)
@@ -158,6 +151,8 @@ function Update!(optimizer::TDVPl1{T}, sample::Projector) where {T<:Complex{<:Ab
     #local_L += l_int
 
     #Update joint ensemble average:
+    #display(size(cache.Δ))
+    #display(size(data.L∂L))
     data.L∂L.+=local_L*conj(cache.Δ) ###conj(cache.Δ)?
 
     #Update disjoint ensemble average:
@@ -168,20 +163,20 @@ function Update!(optimizer::TDVPl1{T}, sample::Projector) where {T<:Complex{<:Ab
     data.mlL += local_L
 end
 
-function UpdateSR!(optimizer::TDVPl1{T}) where {T<:Complex{<:AbstractFloat}}
+function UpdateSR!(optimizer::TDVP{T}) where {T<:Complex{<:AbstractFloat}}
     S::Array{T,2} = optimizer.optimizer_cache.S
     avg_G::Vector{T} = optimizer.optimizer_cache.avg_G
     params::Parameters = optimizer.params
     workspace = optimizer.workspace
     
-    G::Vector{T} = reshape(workspace.Δ,4*params.χ^2)
+    G::Vector{T} = reshape(workspace.Δ,prod(size(workspace.Δ))) # prod(size(Δ))
     conj_G = conj(G)
     avg_G.+= G
     mul!(workspace.plus_S,conj_G,transpose(G))
     S.+=workspace.plus_S 
 end
 
-function Reconfigure!(optimizer::TDVPl1{T}) where {T<:Complex{<:AbstractFloat}} #... the gradient tensor
+function Reconfigure!(optimizer::TDVP{T}) where {T<:Complex{<:AbstractFloat}} #... the gradient tensor
 
     data = optimizer.optimizer_cache
     N_MC = optimizer.sampler.N_MC
@@ -195,23 +190,28 @@ function Reconfigure!(optimizer::TDVPl1{T}) where {T<:Complex{<:AbstractFloat}} 
     #data.S-=data.avg_G*transpose(conj_avg_G) 
 
     #Regularize the metric tensor:
-    data.S+=ϵ*Matrix{Int}(I, params.χ*params.χ*4, params.χ*params.χ*4)
+    data.S+=ϵ*Matrix{Int}(I, size(data.S))
 
     #Reconfigure gradient:
-    grad::Array{eltype(data.S),3} = (data.L∂L-data.ΔLL)/N_MC
+    grad = (data.L∂L-data.ΔLL)/N_MC
     #grad::Array{eltype(data.S),3} = (data.L∂L)/N_MC
     #println("(data.L∂L-data.ΔLL)/N_MC:")
     #display(grad)
     #error()
-    flat_grad::Vector{eltype(data.S)} = reshape(grad,4*params.χ^2)
+    flat_grad = reshape(grad,prod(size(grad)))
     flat_grad = inv(data.S)*flat_grad
     #display(inv(data.S))
     #display(flat_grad)
     #error()
-    data.∇ = reshape(flat_grad,params.χ,params.χ,4)
+
+
+    ### NEED TO CONVERT ARRAY INTO VECTOR(ARRAY)
+
+
+    data.∇ = reshape(flat_grad,size(data.∇))
 end
 
-function Finalize!(optimizer::TDVPl1{T}) where {T<:Complex{<:AbstractFloat}}
+function Finalize!(optimizer::TDVP{T}) where {T<:Complex{<:AbstractFloat}}
     N_MC = optimizer.sampler.N_MC
     data = optimizer.optimizer_cache
 
@@ -226,7 +226,7 @@ function Finalize!(optimizer::TDVPl1{T}) where {T<:Complex{<:AbstractFloat}}
     #error()
 end
 
-function ComputeGradient!(optimizer::TDVPl1{T}) where {T<:Complex{<:AbstractFloat}}
+function ComputeGradient!(optimizer::TDVP{T}) where {T<:Complex{<:AbstractFloat}}
 
     Initialize!(optimizer)
     sample = optimizer.workspace.sample
@@ -256,7 +256,7 @@ function ComputeGradient!(optimizer::TDVPl1{T}) where {T<:Complex{<:AbstractFloa
     end
 end
 
-function Optimize!(optimizer::TDVPl1{T}, δ::Float64) where {T<:Complex{<:AbstractFloat}}
+function Optimize!(optimizer::TDVP{T}, δ::Float64) where {T<:Complex{<:AbstractFloat}}
 
     A = optimizer.mpo.A
 
@@ -282,12 +282,12 @@ function Optimize!(optimizer::TDVPl1{T}, δ::Float64) where {T<:Complex{<:Abstra
     #error()
     A = new_A
     optimizer.mpo.A = A
-    normalize_MPO!(optimizer.params, optimizer.mpo)
+    normalize_MPO!(optimizer.params, optimizer)
     #display(optimizer.mpo.A)
     #error()
 end
 
-function MPI_mean!(optimizer::TDVPl1{T}, mpi_cache) where {T<:Complex{<:AbstractFloat}}
+function MPI_mean!(optimizer::TDVP{T}, mpi_cache) where {T<:Complex{<:AbstractFloat}}
     par_cache = optimizer.optimizer_cache
 
     MPI.Allreduce!(par_cache.L∂L, +, mpi_cache.comm)

@@ -24,17 +24,17 @@ include("MPO/MPO.jl")
 include("MPO/observables.jl")
 
 
+#Monte Carlo samplers:
+include("Samplers/Metropolis.jl")
+
+
 #Optimizers:
+include("Optimisers/diagonal_operators.jl")
 include("Optimisers/optimizer.jl")
 
 
-#Monte Carlo samplers:
-include("Samplers/MPO_Metropolis.jl")
-
-
 #Optimizer routines:
-include("Optimisers/diagonal_operators.jl")
-include("Optimisers/MPO/common.jl")
+include("Optimisers/MPO/TDVP_Metropolis.jl")
 include("Optimisers/MPO/TDVP.jl")
 
 end

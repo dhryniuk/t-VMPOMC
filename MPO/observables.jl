@@ -69,6 +69,21 @@ function tensor_calculate_magnetization(params::Parameters, A::Array{ComplexF64,
     return @tensor C[a,a]
 end
 
+function tensor_calculate_magnetization(params::Parameters, mpo::MPO{ComplexF64}, op::Array{ComplexF64})
+    A=mpo.A
+    B=zeros(ComplexF64,params.χ,params.χ)
+    D=zeros(ComplexF64,params.χ,params.χ)
+    A_reshaped = reshape(A[1,:,:,:],params.χ,params.χ,2,2)
+    @tensor B[a,b]=A_reshaped[a,b,c,d]*op[c,d]
+    C=deepcopy(B)
+    for i in 1:params.N-1
+        A_reshaped = reshape(A[i+1,:,:,:],params.χ,params.χ,2,2)
+        @tensor D[a,b] = C[a,c]*A_reshaped[c,b,e,e]
+        C=deepcopy(D)
+    end
+    return @tensor C[a,a]
+end
+
 export tensor_calculate_correlation
 
 function tensor_calculate_correlation(params::Parameters, A::Array{ComplexF64,4}, op::Array{ComplexF64})
