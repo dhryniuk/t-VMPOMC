@@ -74,27 +74,18 @@ if mpi_cache.rank == 0
         A_init[1, 1, 2, 2] = 0.02
         #display(A_init)
         #error()
-        A=deepcopy(A_init)
-        A=reshape(A,χ,χ,4)
-        A = normalize_MPO!(params, A)
+        A = deepcopy(A_init)
+        mpo = TI_MPO(reshape(A,χ,χ,4))
+
+
+        #A=reshape(A,χ,χ,4)
+        normalize_MPO!(params, mpo)
 
     #display(A)
 
         sampler = MetropolisSampler(N_MC, 5)
-        optimizer = TDVP(sampler, A, l1, ϵ, params)
+        optimizer = TDVP(sampler, mpo, l1, ϵ, params)
 
-"""
-        list_of_parameters = open("Ising_decay_chi$(χ)_N$(N)_hx$(hx)_γd$(γ_d).params", "w")
-        redirect_stdout(list_of_parameters)
-        display(params)
-        display(mpi_cache)
-        display(sampler)
-        #display(optimizer)
-        println("\nN_iter\t", N_iterations)
-        println("δ\t\t", δ)
-        println("F\t\t", F)
-        close(list_of_parameters)
-"""
 
     #display(A)
     else
@@ -124,13 +115,13 @@ MPI.bcast(last_iteration_step, mpi_cache.comm)
 MPI.Bcast!(A, 0, mpi_cache.comm)
 
 sampler = MetropolisSampler(N_MC, 5)
-optimizer = TDVP(sampler, A, l1, ϵ, params)
+optimizer = TDVP(sampler, mpo, l1, ϵ, params)
 
 
 if mpi_cache.rank == 0
     global t0 = time()
 
-    Af = reshape(optimizer.A,χ,χ,2,2) 
+    Af = reshape(optimizer.mpo.A,χ,χ,2,2) 
     Af_dagger = conj.(permutedims(Af,[1,2,4,3]))
 
     mx = real(tensor_calculate_magnetization(params,Af,sx))
@@ -148,7 +139,7 @@ if mpi_cache.rank == 0
     println(list_of_mag, mx, ",", my, ",", mz)
     close(list_of_mag)
     list_of_P = open("list_of_P_chi$(χ)_N$(N)_hx$(hx)_γd$(γ_d).data", "a")
-    P = real(tensor_purity(params, optimizer.A))
+    P = real(tensor_purity(params, optimizer.mpo.A))
     println(list_of_P, P)
     close(list_of_P)
     list_of_cor = open("list_of_cor_chi$(χ)_N$(N)_hx$(hx)_γd$(γ_d).data", "a")
@@ -172,7 +163,7 @@ for k in last_iteration_step:N_iterations
             #Optimize!(optimizer,basis,δ*F^(k))
             global d = time()
         end
-        MPI.Bcast!(optimizer.A, 0, mpi_cache.comm)
+        MPI.Bcast!(optimizer.mpo.A, 0, mpi_cache.comm)
         if mpi_cache.rank == 0
             global e = time()
         end
@@ -180,7 +171,7 @@ for k in last_iteration_step:N_iterations
 
     #Record observables:
     if mpi_cache.rank == 0
-        Af = reshape(optimizer.A,χ,χ,2,2) 
+        Af = reshape(optimizer.mpo.A,χ,χ,2,2) 
         Af_dagger = conj.(permutedims(Af,[1,2,4,3]))
 
         mx = real(tensor_calculate_magnetization(params,Af,sx))
@@ -214,7 +205,7 @@ for k in last_iteration_step:N_iterations
         println(list_of_mag, mx, ",", my, ",", mz)
         close(list_of_mag)
         list_of_P = open("list_of_P_chi$(χ)_N$(N)_hx$(hx)_γd$(γ_d).data", "a")
-        P = real(tensor_purity(params, optimizer.A))
+        P = real(tensor_purity(params, optimizer.mpo.A))
         println(list_of_P, P)
         close(list_of_P)
         list_of_cor = open("list_of_cor_chi$(χ)_N$(N)_hx$(hx)_γd$(γ_d).data", "a")

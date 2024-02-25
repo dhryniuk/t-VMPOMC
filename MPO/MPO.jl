@@ -1,20 +1,31 @@
 export normalize_MPO!
 
+export TI_MPO
 
-function MPO(params::Parameters, sample::Projector, A::Array{ComplexF64})
-    MPO=Matrix{ComplexF64}(I, params.χ, params.χ)
-    #println("INSIDE")
+abstract type MatrixProductOperator{T} end
+
+#abstract type TI_MPO{T} <: MatrixProductOperator{T} end
+
+mutable struct TI_MPO{T} <: MatrixProductOperator{T}
+    A::Array{<:T,3}
+end
+
+mutable struct MPO{T} <: MatrixProductOperator{T}
+    A::Array{Array{<:T,3}}
+end
+
+function trMPO(params::Parameters, sample::Projector, mpo::MPO{T}) where {T<:Complex{<:AbstractFloat}} 
+    A = mpo.A
+    trMPO=Matrix{ComplexF64}(I, params.χ, params.χ)
     for i::UInt8 in 1:params.N
-        #println("A=")
-        #display(A[:,:,idx(sample,i)])
-        #println(idx(sample,i))
-        MPO*=A[:,:,idx(sample,i)]
+        trMPO*=A[i][:,:,idx(sample,i)]
     end
-    return tr(MPO)::ComplexF64
+    return tr(trMPO)::ComplexF64
 end
 
 #Left strings of MPOs:
-function L_MPO_strings!(L_set, sample::Projector, A::Array{<:Complex{<:AbstractFloat},3}, params::Parameters, cache::Workspace)
+function L_MPO_strings!(L_set, sample::Projector, mpo::MPO{T}, params::Parameters, cache::Workspace) where {T<:Complex{<:AbstractFloat}} 
+    A = mpo.A
     L_set[1] = cache.ID
     for i::UInt8=1:params.N
         mul!(L_set[i+1], L_set[i], @view(A[:,:,idx(sample,i)]))
@@ -23,7 +34,8 @@ function L_MPO_strings!(L_set, sample::Projector, A::Array{<:Complex{<:AbstractF
 end
 
 #Right strings of MPOs:
-function R_MPO_strings!(R_set, sample::Projector, A::Array{<:Complex{<:AbstractFloat},3}, params::Parameters, cache::Workspace)
+function R_MPO_strings!(R_set, sample::Projector, mpo::MPO{T}, params::Parameters, cache::Workspace) where {T<:Complex{<:AbstractFloat}} 
+    A = mpo.A
     R_set[1] = cache.ID
     for i::UInt8=params.N:-1:1
         mul!(R_set[params.N+2-i], @view(A[:,:,idx(sample,i)]), R_set[params.N+1-i])
@@ -31,10 +43,40 @@ function R_MPO_strings!(R_set, sample::Projector, A::Array{<:Complex{<:AbstractF
     return R_set
 end
 
-function normalize_MPO!(params::Parameters, A::Array{<:Complex{<:AbstractFloat},3})
-    #MPO=(A[:,:,dINDEX[(1,1)]]+A[:,:,dINDEX[(0,0)]])^params.N
-    MPO=(A[:,:,1]+A[:,:,4])^params.N
-    return A./=tr(MPO)^(1/params.N)
+function trMPO(params::Parameters, sample::Projector, mpo::TI_MPO{T}) where {T<:Complex{<:AbstractFloat}} 
+    A = mpo.A
+    trMPO=Matrix{ComplexF64}(I, params.χ, params.χ)
+    for i::UInt8 in 1:params.N
+        trMPO*=A[:,:,idx(sample,i)]
+    end
+    return tr(trMPO)::ComplexF64
+end
+
+#Left strings of MPOs:
+function L_MPO_strings!(L_set, sample::Projector, mpo::TI_MPO{T}, params::Parameters, cache::Workspace) where {T<:Complex{<:AbstractFloat}} 
+    A = mpo.A
+    L_set[1] = cache.ID
+    for i::UInt8=1:params.N
+        mul!(L_set[i+1], L_set[i], @view(A[:,:,idx(sample,i)]))
+    end
+    return L_set
+end
+
+#Right strings of MPOs:
+function R_MPO_strings!(R_set, sample::Projector, mpo::TI_MPO{T}, params::Parameters, cache::Workspace) where {T<:Complex{<:AbstractFloat}} 
+    A = mpo.A
+    R_set[1] = cache.ID
+    for i::UInt8=params.N:-1:1
+        mul!(R_set[params.N+2-i], @view(A[:,:,idx(sample,i)]), R_set[params.N+1-i])
+    end
+    return R_set
+end
+
+function normalize_MPO!(params::Parameters, mpo::TI_MPO{T}) where {T<:Complex{<:AbstractFloat}} 
+    A = mpo.A
+    _MPO=(A[:,:,1]+A[:,:,4])^params.N
+    A./=tr(_MPO)^(1/params.N)
+    mpo.A = A
 end
 
 #Computes the tensor of derivatives of variational parameters: 

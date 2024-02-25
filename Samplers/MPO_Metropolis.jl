@@ -22,7 +22,7 @@ end
 #Sweeps lattice from right to left
 function Mono_Metropolis_sweep_left(sample::Projector, optimizer::Optimizer)
 
-    A = optimizer.A
+    A = optimizer.mpo.A
     params = optimizer.params
     cache=optimizer.workspace
 
@@ -53,7 +53,7 @@ end
 #Sweeps lattice from left to right
 function Mono_Metropolis_sweep_right(sample::Projector, optimizer::Optimizer)
 
-    A = optimizer.A
+    A = optimizer.mpo.A
     params = optimizer.params
     cache=optimizer.workspace
 
@@ -83,13 +83,13 @@ end
 
 function MPO_Metropolis_burn_in(optimizer::Optimizer)
 
-    A=optimizer.A
+    A=optimizer.mpo.A
     params=optimizer.params
     cache=optimizer.workspace
     
     # Initialize random sample and calculate L_set for that sample:
     sample::Projector = Projector(rand(Bool, params.N),rand(Bool, params.N))
-    cache.L_set = L_MPO_strings!(cache.L_set, sample, A, params, cache)
+    cache.L_set = L_MPO_strings!(cache.L_set, sample, optimizer.mpo, params, cache)
 
     # Perform burn_in:
     for _ in 1:optimizer.sampler.burn
@@ -108,7 +108,7 @@ end
 #Sweeps lattice from right to left
 function Mono_Metropolis_sweep_left(sample::Projector, optimizer)
 
-    A = optimizer.A
+    A = optimizer.mpo.A
     params = optimizer.params
     cache=optimizer.workspace
 
@@ -139,7 +139,7 @@ end
 #Sweeps lattice from left to right
 function Mono_Metropolis_sweep_right(sample::Projector, optimizer)
 
-    A = optimizer.A
+    A = optimizer.mpo.A
     params = optimizer.params
     cache=optimizer.workspace
 
@@ -169,7 +169,7 @@ end
 
 function MPO_Metropolis_burn_in(optimizer)
 
-    A=optimizer.A
+    A=optimizer.mpo.A
     params=optimizer.params
     cache=optimizer.workspace
     

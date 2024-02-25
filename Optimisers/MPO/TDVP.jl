@@ -34,7 +34,8 @@ end
 mutable struct TDVPl1{T<:Complex{<:AbstractFloat}} <: TDVP{T}
 
     #MPO:
-    A::Array{T,3}
+    #A::Array{T,3}
+    mpo::TI_MPO{T}
 
     #Sampler:
     sampler::MetropolisSampler
@@ -58,20 +59,20 @@ mutable struct TDVPl1{T<:Complex{<:AbstractFloat}} <: TDVP{T}
 
 end
 
-function TDVP(sampler::MetropolisSampler, A::Array{T,3}, l1::Matrix{T}, ϵ::Float64, params::Parameters) where {T<:Complex{<:AbstractFloat}} 
-    optimizer = TDVPl1(A, sampler, TDVPCache(A, params), l1, Ising(), LocalDephasing(), params, ϵ, set_workspace(A, params))
+function TDVP(sampler::MetropolisSampler, mpo::TI_MPO{T}, l1::Matrix{T}, ϵ::Float64, params::Parameters) where {T<:Complex{<:AbstractFloat}} 
+    optimizer = TDVPl1(mpo, sampler, TDVPCache(mpo.A, params), l1, Ising(), LocalDephasing(), params, ϵ, set_workspace(mpo.A, params))
     return optimizer
 end
 
 function Initialize!(optimizer::TDVP{T}) where {T<:Complex{<:AbstractFloat}}
-    optimizer.optimizer_cache = TDVPCache(optimizer.A, optimizer.params)
-    optimizer.workspace = set_workspace(optimizer.A, optimizer.params)
+    optimizer.optimizer_cache = TDVPCache(optimizer.mpo.A, optimizer.params)
+    optimizer.workspace = set_workspace(optimizer.mpo.A, optimizer.params)
 end
 
 function TDVP_one_body_Lindblad_term!(local_L::T, sample::Projector, j::UInt8, optimizer::TDVPl1{T}) where {T<:Complex{<:AbstractFloat}} 
 
     l1 = optimizer.l1
-    A = optimizer.A
+    A = optimizer.mpo.A
     params = optimizer.params
     cache = optimizer.workspace
 
@@ -92,7 +93,7 @@ function TDVP_one_body_Lindblad_term!(local_L::T, sample::Projector, j::UInt8, o
 end
 
 function Ising_interaction_energy(ising_op::Ising, sample::Projector, optimizer::TDVPl1{T}) where {T<:Complex{<:AbstractFloat}} 
-    A = optimizer.A
+    A = optimizer.mpo.A
     params = optimizer.params
 
     l_int::T=0
@@ -128,17 +129,16 @@ end
 function Update!(optimizer::TDVPl1{T}, sample::Projector) where {T<:Complex{<:AbstractFloat}} #... the ensemble averages etc.
 
     params=optimizer.params
-    A=optimizer.A
+    mpo=optimizer.mpo
+    A=optimizer.mpo.A
     data=optimizer.optimizer_cache
     cache = optimizer.workspace
 
     local_L = 0
     l_int = 0
 
-    #println("ENTERING")
-    ρ_sample::T = MPO(params,sample,A)#tr(cache.R_set[params.N+1])
-    #error()
-    cache.L_set = L_MPO_strings!(cache.L_set, sample,A,params,cache)
+    ρ_sample::T = trMPO(params, sample, mpo)
+    cache.L_set = L_MPO_strings!(cache.L_set, sample, mpo, params, cache)
     cache.Δ = ∂MPO(sample, cache.L_set, cache.R_set, params, cache)./ρ_sample
 
 #display(sample)
@@ -258,6 +258,8 @@ end
 
 function Optimize!(optimizer::TDVPl1{T}, δ::Float64) where {T<:Complex{<:AbstractFloat}}
 
+    A = optimizer.mpo.A
+
     Finalize!(optimizer)
 
     #display(optimizer.optimizer_cache.S)
@@ -273,10 +275,16 @@ function Optimize!(optimizer::TDVPl1{T}, δ::Float64) where {T<:Complex{<:Abstra
     #display(∇)
     #error()
 
-    new_A = similar(optimizer.A)
-    new_A = optimizer.A + δ*∇
-    optimizer.A = new_A
-    optimizer.A = normalize_MPO!(optimizer.params, optimizer.A)
+    new_A = similar(A)
+    new_A = A + δ*∇
+    #display(A)
+    #display(new_A)
+    #error()
+    A = new_A
+    optimizer.mpo.A = A
+    normalize_MPO!(optimizer.params, optimizer.mpo)
+    #display(optimizer.mpo.A)
+    #error()
 end
 
 function MPI_mean!(optimizer::TDVPl1{T}, mpi_cache) where {T<:Complex{<:AbstractFloat}}
