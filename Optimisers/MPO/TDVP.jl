@@ -7,7 +7,7 @@ end
 
 function TDVP_one_body_Lindblad_term!(local_L::T, sample::Projector, j::UInt8, optimizer::TDVPl1{T}) where {T<:Complex{<:AbstractFloat}} 
 
-    l1 = optimizer.l1
+    l1 = optimizer.list_l1[j]
     A = optimizer.mpo.A
     params = optimizer.params
     cache = optimizer.workspace
@@ -37,9 +37,6 @@ function normalize_MPO!(params::Parameters, optimizer::TDVPl1{T}) where {T<:Comp
         _MPO*=(A[i,:,:,1]+A[i,:,:,4])
     end
     trMPO = tr(_MPO)^(1/params.N)
-    #for i in 1:params.N
-    #    A[i]./=trMPO
-    #end
     A./=trMPO
     optimizer.mpo.A = A
 end

@@ -39,6 +39,7 @@ params = Parameters(N,χ,Jx,Jy,J,hx,hz,γ,γ_d,α)
 
 #Replace by an array of l1's!
 const l1 = make_one_body_Lindbladian(hx*sx+hz*sz,sqrt(γ)*sm)
+const list_l1 = [l1 for _ in 1:N]
 
 display(l1)
 
@@ -82,7 +83,7 @@ if mpi_cache.rank == 0
         mpo = MPO(A)
 
         sampler = MetropolisSampler(N_MC, 5)
-        optimizer = TDVP(sampler, mpo, l1, ϵ, params)
+        optimizer = TDVP(sampler, mpo, list_l1, ϵ, params)
         normalize_MPO!(params, optimizer)
     else
         error()
@@ -110,12 +111,12 @@ else
     mpo = MPO(A)
 end
 MPI.bcast(last_iteration_step, mpi_cache.comm)
-println(typeof(mpo.A))
-println(eltype(mpo.A))
+#println(typeof(mpo.A))
+#println(eltype(mpo.A))
 #MPI.Bcast!(mpo.A, 0, mpi_cache.comm)
 
 sampler = MetropolisSampler(N_MC, 5)
-optimizer = TDVP(sampler, mpo, l1, ϵ, params)
+optimizer = TDVP(sampler, mpo, list_l1, ϵ, params)
 
 
 if mpi_cache.rank == 0
