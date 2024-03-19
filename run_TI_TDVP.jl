@@ -16,7 +16,7 @@ mpi_cache = set_mpi()
 #Define constants:
 const Jx= 0.0 #interaction strength
 const Jy= 0.0 #interaction strength
-const J = 0.0 #interaction strength
+const J = 0.5 #interaction strength
 #const hx= 1.0 #transverse field strength
 const hz= 0.0 #transverse field strength
 const γ = 1.0 #spin decay rate
@@ -40,11 +40,11 @@ const l1 = make_one_body_Lindbladian(hx*sx+hz*sz,sqrt(γ)*sm)
 
 display(l1)
 
-N_MC::Int64 = 1000#10*4*χ^2
+N_MC::Int64 = 10000#10*4*χ^2
 δ::Float64 = 0.01
 F::Float64 = 1.0#0.9999
 ϵ::Float64 = parse(Float64,ARGS[4])
-N_iterations::Int64 = 1000
+N_iterations::Int64 = 500
 last_iteration_step::Int64 = 1
 
 #Save parameters to file:
@@ -64,30 +64,19 @@ if mpi_cache.rank == 0
         close(path)
 
         Random.seed!(0)
-        A_init=zeros(ComplexF64, χ,χ,2,2)#+0.001*rand(ComplexF64, χ,χ,2,2)
-        A_init[1, 1, 1, 1] = 0.98
-        #A_init[1, 2, 1, 1] = 0
-        #A_init[2, 1, 1, 1] = 0
-        #A_init[2, 2, 1, 1] = 1
-        A_init[1, 1, 2, 1] = 0.02
-        A_init[1, 1, 1, 2] = 0.02
-        A_init[1, 1, 2, 2] = 0.02
-        #display(A_init)
-        #error()
+        A_init=zeros(ComplexF64, χ,χ,4)
+
+        A_init[:,:,1].=1.0
+        A_init[:,:,2].=1.0
+        A_init[:,:,3].=1.0
+        A_init[:,:,4].=1.0
+
         A = deepcopy(A_init)
-        mpo = TI_MPO(reshape(A,χ,χ,4))
-
-
-        #A=reshape(A,χ,χ,4)
-        normalize_MPO!(params, mpo)
-
-    #display(A)
+        mpo = TI_MPO(A)
 
         sampler = MetropolisSampler(N_MC, 5)
         optimizer = TDVP(sampler, mpo, l1, ϵ, params)
-
-
-    #display(A)
+        normalize_MPO!(params, optimizer)
     else
         cd(dir)
         list_of_C = open("list_of_C_chi$(χ)_N$(N)_hx$(hx)_γd$(γ_d).data", "r")
@@ -109,7 +98,14 @@ if mpi_cache.rank == 0
     d::Float64=0
 else
     Random.seed!(mpi_cache.rank)
+    A_init=zeros(ComplexF64, χ,χ,4)
+    A_init[:,:,1].=1.0
+    A_init[:,:,2].=1.0
+    A_init[:,:,3].=1.0
+    A_init[:,:,4].=1.0
     A = Array{ComplexF64}(undef, χ,χ,4)
+    A = deepcopy(A_init)
+    mpo = TI_MPO(A)
 end
 MPI.bcast(last_iteration_step, mpi_cache.comm)
 MPI.Bcast!(A, 0, mpi_cache.comm)

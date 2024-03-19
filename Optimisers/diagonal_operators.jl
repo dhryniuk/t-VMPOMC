@@ -1,10 +1,12 @@
-# This file contains routines required for the computation of purely-diagonal terms of the Lindbladian
+# This file contains routines required for the computation of purely-diagonal interaction terms of the Lindbladian
 
 abstract type DiagonalOperators end
 
 abstract type IsingInteraction <: DiagonalOperators end
 
 struct Ising <: IsingInteraction end
+
+struct IsingTwoD <: IsingInteraction end
 
 struct LongRangeIsing <: IsingInteraction
     α::Float64

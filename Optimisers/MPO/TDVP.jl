@@ -97,6 +97,45 @@ function Ising_interaction_energy(ising_op::Ising, sample::Projector, optimizer:
     return -1.0im*params.J*l_int
 end
 
+function Ising_2D_interaction_energy(ising_op::IsingTwoD, sample::Projector, optimizer::TDVP{T}) where {T<:Complex{<:AbstractFloat}} 
+    A = optimizer.mpo.A
+    params = optimizer.params
+    L = isqrt(params.N)
+
+    l_int::T=0
+    for k::UInt8 in 0:L-1
+        for j::UInt8 in 1:L
+
+            #Horizontal:
+            l_int_ket = (2*sample.ket[j+k*L]-1)*(2*sample.ket[mod(j,L)+1+k*L]-1)
+            l_int_bra = (2*sample.bra[j+k*L]-1)*(2*sample.bra[mod(j,L)+1+k*L]-1)
+            l_int += l_int_ket-l_int_bra
+
+            #Vertical:
+            l_int_ket = (2*sample.ket[j+k*L]-1)*(2*sample.ket[j+mod(k+1,L)*L]-1)
+            l_int_bra = (2*sample.bra[j+k*L]-1)*(2*sample.bra[j+mod(k+1,L)*L]-1)
+            l_int += l_int_ket-l_int_bra
+
+        end
+    end
+
+    return -1.0im*params.J*l_int
+end
+
+"""
+for k in 0:N-1
+    for j in 1:N
+        println(j+k*N, " ", mod(j,N)+1+k*N)
+    end
+end
+
+for k in 0:N-1
+    for j in 1:N
+        println(j+k*N, " ", j+mod(k+1,N)*N)
+    end
+end
+"""
+
 function SweepLindblad!(sample::Projector, ρ_sample::T, optimizer::TDVP{T}) where {T<:Complex{<:AbstractFloat}} 
 
     params = optimizer.params
@@ -143,9 +182,10 @@ function Update!(optimizer::TDVP{T}, sample::Projector) where {T<:Complex{<:Abst
 
     #Add in Ising interaction terms:
     #l_int = Ising_interaction_energy(optimizer.ising_op, sample, optimizer)
+    l_int = Ising_2D_interaction_energy(optimizer.ising_op, sample, optimizer)
     #display(l_int)
     #display(local_L)
-    #local_L += l_int
+    local_L += l_int
 
     #Update joint ensemble average:
     #display(size(cache.Δ))

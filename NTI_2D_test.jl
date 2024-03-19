@@ -45,7 +45,7 @@ const list_l1 = [l1 for _ in 1:N]
 
 display(list_l1)
 
-N_MC::Int64 = 10000#10*4*χ^2
+N_MC::Int64 = 250#10*4*χ^2
 δ::Float64 = 0.01
 F::Float64 = 1.0#0.9999
 ϵ::Float64 = parse(Float64,ARGS[4])

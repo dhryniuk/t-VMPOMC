@@ -116,3 +116,24 @@ function generate_bit_basis(N)#(N::UInt8)
     end
     return Vector{Vector{Bool}}(set)
 end
+
+
+
+
+#Generate open-boundary-conditions MPO:
+"""
+A_init = zeros(ComplexF64, N,χ,χ,4)
+v1 = [0.95,0.1,0.1,0.05]
+for i in 1:χ
+    A_init[1,1,i,:]=v1
+    A_init[N,i,1,:]=v1
+    for n in 2:N-1
+        for j in 1:χ
+            A_init[n,j,i,:]=v1
+        end
+    end
+end
+A = deepcopy(A_init)
+mpo = MPO(A)
+"""
+
