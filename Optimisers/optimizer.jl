@@ -26,7 +26,7 @@ function TDVPCache(A::Array{T,4},params::Parameters) where {T<:Complex{<:Abstrac
         zeros(T, params.N, params.χ, params.χ, 4),
         zeros(T, params.N, params.χ, params.χ, 4),
         convert(T,0),
-        0.0,#convert(UInt64,0),
+        0.0,
         zeros(T,params.N,params.χ,params.χ,4),
         zeros(T,4*params.χ^2*params.N,4*params.χ^2*params.N),
         zeros(T,4*params.χ^2*params.N)
@@ -62,9 +62,14 @@ mutable struct TDVPl1{T<:Complex{<:AbstractFloat}} <: TDVP{T}
 
 end
 
-function TDVP(sampler::MetropolisSampler, mpo::MPO{T}, list_l1::Vector{Matrix{T}}, ϵ::Float64, params::Parameters) where {T<:Complex{<:AbstractFloat}} 
-    #optimizer = TDVPl1(mpo, sampler, TDVPCache(mpo.A, params), list_l1, Ising(), LocalDephasing(), params, ϵ, set_workspace(mpo.A, params))
-    optimizer = TDVPl1(mpo, sampler, TDVPCache(mpo.A, params), list_l1, IsingTwoD(), LocalDephasing(), params, ϵ, set_workspace(mpo.A, params))
+function TDVP(sampler::MetropolisSampler, mpo::MPO{T}, list_l1::Vector{Matrix{T}}, ϵ::Float64, params::Parameters, ising_int::String) where {T<:Complex{<:AbstractFloat}}
+    if ising_int=="Ising" 
+        optimizer = TDVPl1(mpo, sampler, TDVPCache(mpo.A, params), list_l1, Ising(), LocalDephasing(), params, ϵ, set_workspace(mpo.A, params))
+    elseif ising_int=="2DIsing"
+        optimizer = TDVPl1(mpo, sampler, TDVPCache(mpo.A, params), list_l1, IsingTwoD(), LocalDephasing(), params, ϵ, set_workspace(mpo.A, params))
+    else
+        error("Unrecognized Ising interaction")
+    end
     return optimizer
 end
 
@@ -128,7 +133,6 @@ mutable struct TI_TDVPl1{T<:Complex{<:AbstractFloat}} <: TDVP{T}
 end
 
 function TDVP(sampler::MetropolisSampler, mpo::TI_MPO{T}, l1::Matrix{T}, ϵ::Float64, params::Parameters) where {T<:Complex{<:AbstractFloat}} 
-    #optimizer = TI_TDVPl1(mpo, sampler, TI_TDVPCache(mpo.A, params), l1, IsingTwoD(), LocalDephasing(), params, ϵ, set_workspace(mpo.A, params))
     optimizer = TI_TDVPl1(mpo, sampler, TI_TDVPCache(mpo.A, params), l1, Ising(), LocalDephasing(), params, ϵ, set_workspace(mpo.A, params))
     return optimizer
 end

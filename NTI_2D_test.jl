@@ -51,6 +51,7 @@ F::Float64 = 1.0#0.9999
 ϵ::Float64 = parse(Float64,ARGS[4])
 N_iterations::Int64 = 500
 last_iteration_step::Int64 = 1
+ising_int = "2DIsing"
 
 #Save parameters to file:
 if mpi_cache.rank == 0
@@ -70,21 +71,6 @@ if mpi_cache.rank == 0
 
         Random.seed!(0)
         #A_init = [zeros(ComplexF64, χ,χ,4) for _ in 1:N]
-        """
-        A_init = zeros(ComplexF64, N,χ,χ,4)
-        v1 = [0.95,0.1,0.1,0.05]
-        for i in 1:χ
-            A_init[1,1,i,:]=v1
-            A_init[N,i,1,:]=v1
-            for n in 2:N-1
-                for j in 1:χ
-                    A_init[n,j,i,:]=v1
-                end
-            end
-        end
-        A = deepcopy(A_init)
-        mpo = MPO(A)
-        """
         A_init = zeros(ComplexF64, N,χ,χ,4)
         for i in 1:N
             A_init[i,:,:,1].=1.0
@@ -95,30 +81,8 @@ if mpi_cache.rank == 0
         A = deepcopy(A_init)
         mpo = MPO(A)
 
-        """
-        basis = generate_bit_basis(N)
-        display(basis)
-        
         sampler = MetropolisSampler(N_MC, 5)
-        optimizer = TDVP(sampler, mpo, list_l1, ϵ, params)
-        normalize_MPO!(params, optimizer)
-
-        ρ = compute_density_matrix(params, mpo, basis)
-        display(ρ)
-        display(adjoint(ρ)==ρ)
-        display(eigvals(ρ))
-        
-        for i in 1:N
-            mx = real(tensor_calculate_magnetization(params,mpo,sx,i))
-            my = real(tensor_calculate_magnetization(params,mpo,sy,i))
-            mz = real(tensor_calculate_magnetization(params,mpo,sz,i))
-            println(mx, ",", my, ",", mz)
-        end
-        #error()
-        """
-
-        sampler = MetropolisSampler(N_MC, 5)
-        optimizer = TDVP(sampler, mpo, list_l1, ϵ, params)
+        optimizer = TDVP(sampler, mpo, list_l1, ϵ, params, ising_int)
         normalize_MPO!(params, optimizer)
     else
         error()
@@ -153,19 +117,14 @@ else
     mpo = MPO(A)
 end
 MPI.bcast(last_iteration_step, mpi_cache.comm)
-#println(typeof(mpo.A))
-#println(eltype(mpo.A))
-#MPI.Bcast!(mpo.A, 0, mpi_cache.comm)
+
 
 sampler = MetropolisSampler(N_MC, 5)
-optimizer = TDVP(sampler, mpo, list_l1, ϵ, params)
+optimizer = TDVP(sampler, mpo, list_l1, ϵ, params, ising_int)
 
 
 if mpi_cache.rank == 0
     global t0 = time()
-
-    #Af = reshape(optimizer.mpo.A,χ,χ,2,2) 
-    #Af_dagger = conj.(permutedims(Af,[1,2,4,3]))
 
     mx = real(average_magnetization(params,mpo,sx))
     my = real(average_magnetization(params,mpo,sy))
@@ -185,7 +144,6 @@ for k in last_iteration_step:N_iterations
             global a = time()
         end
         ComputeGradient!(optimizer)
-        #ComputeGradient!(optimizer, basis)
         if mpi_cache.rank == 0
             global b = time()
         end
@@ -193,7 +151,6 @@ for k in last_iteration_step:N_iterations
         if mpi_cache.rank == 0
             global c = time()
             Optimize!(optimizer,δ*F^(k))
-            #Optimize!(optimizer,basis,δ*F^(k))
             global d = time()
         end
         MPI.Bcast!(optimizer.mpo.A, 0, mpi_cache.comm)

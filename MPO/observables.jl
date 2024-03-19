@@ -3,6 +3,22 @@ export calculate_z_magnetization, calculate_x_magnetization, calculate_y_magneti
 #temporary:
 export hermetize_MPO, increase_bond_dimension, L_MPO_strings!, density_matrix, calculate_purity, calculate_Renyi_entropy, tensor_purity
 
+export compute_density_matrix
+function compute_density_matrix(params::Parameters, mpo, basis::Basis)
+    ρ = zeros(ComplexF64,length(basis), length(basis))
+    k=0
+    for ket in basis
+        k+=1
+        b=0
+        for bra in basis
+            b+=1
+            sample = Projector(ket,bra)
+            p = trMPO(params,sample,mpo)
+            ρ[k,b] = p
+        end
+    end
+    return ρ
+end
 
 function hermetize_MPO(params::Parameters, A::Array{ComplexF64})
     A=reshape(A,params.χ,params.χ,2,2)
@@ -82,6 +98,35 @@ function tensor_calculate_magnetization(params::Parameters, mpo::MPO{ComplexF64}
         C=deepcopy(D)
     end
     return @tensor C[a,a]
+end
+
+function tensor_calculate_magnetization(params::Parameters, mpo::MPO{ComplexF64}, op::Array{ComplexF64}, j)
+    if j==1
+        return tensor_calculate_magnetization(params, mpo, op)
+    else
+        A=mpo.A
+        B=zeros(ComplexF64,params.χ,params.χ)
+        A_reshaped = reshape(A[1,:,:,:],params.χ,params.χ,2,2)
+        @tensor B[a,b]=A_reshaped[a,b,c,c]
+        for i in 1:params.N-1
+            A_reshaped = reshape(A[i+1,:,:,:],params.χ,params.χ,2,2)
+            if i+1==j
+                @tensor B[a,b]:= B[a,e]*A_reshaped[e,b,c,d]*op[c,d]
+            else
+                @tensor B[a,b]:= B[a,e]*A_reshaped[e,b,c,c]
+            end
+        end
+        return @tensor B[a,a]
+    end
+end
+
+export average_magnetization
+function average_magnetization(params::Parameters, mpo::MPO{ComplexF64}, op::Array{ComplexF64})
+    mag = 0
+    for j in 1:params.N
+        mag += tensor_calculate_magnetization(params, mpo, op, j)
+    end
+    return mag/params.N
 end
 
 export tensor_calculate_correlation
