@@ -94,10 +94,11 @@ function Ising_interaction_energy(ising_op::Ising, sample::Projector, optimizer:
     l_int_ket = (2*sample.ket[params.N]-1)*(2*sample.ket[1]-1)
     l_int_bra = (2*sample.bra[params.N]-1)*(2*sample.bra[1]-1)
     l_int += l_int_ket-l_int_bra
+
     return -1.0im*params.J*l_int
 end
 
-function Ising_2D_interaction_energy(ising_op::IsingTwoD, sample::Projector, optimizer::TDVP{T}) where {T<:Complex{<:AbstractFloat}} 
+function Ising_interaction_energy(ising_op::IsingTwoD, sample::Projector, optimizer::TDVP{T}) where {T<:Complex{<:AbstractFloat}} 
     A = optimizer.mpo.A
     params = optimizer.params
     L = isqrt(params.N)
@@ -167,7 +168,7 @@ function Update!(optimizer::TDVP{T}, sample::Projector) where {T<:Complex{<:Abst
 
     ρ_sample::T = trMPO(params, sample, mpo)
     cache.L_set = L_MPO_strings!(cache.L_set, sample, mpo, params, cache)
-    cache.Δ = ∂MPO(sample, cache.L_set, cache.R_set, params, cache, optimizer.mpo)./ρ_sample
+    cache.Δ = conj_∂MPO(sample, cache.L_set, cache.R_set, params, cache, optimizer.mpo)./ρ_sample
     #display(size(cache.Δ))
     #error()
 #display(sample)
@@ -181,8 +182,8 @@ function Update!(optimizer::TDVP{T}, sample::Projector) where {T<:Complex{<:Abst
 #error()
 
     #Add in Ising interaction terms:
-    #l_int = Ising_interaction_energy(optimizer.ising_op, sample, optimizer)
-    l_int = Ising_2D_interaction_energy(optimizer.ising_op, sample, optimizer)
+    l_int = Ising_interaction_energy(optimizer.ising_op, sample, optimizer)
+    #l_int = Ising_2D_interaction_energy(optimizer.ising_op, sample, optimizer)
     #display(l_int)
     #display(local_L)
     local_L += l_int
@@ -190,10 +191,10 @@ function Update!(optimizer::TDVP{T}, sample::Projector) where {T<:Complex{<:Abst
     #Update joint ensemble average:
     #display(size(cache.Δ))
     #display(size(data.L∂L))
-    data.L∂L.+=local_L*conj(cache.Δ) ###conj(cache.Δ)?
+    data.L∂L.+=local_L*cache.Δ ###conj(cache.Δ)?
 
     #Update disjoint ensemble average:
-    data.ΔLL.+=conj(cache.Δ)
+    data.ΔLL.+=cache.Δ
     #data.ΔLL.+=(cache.Δ)*adoint(local_L)
 
     #Mean local Lindbladian:
@@ -210,7 +211,7 @@ function UpdateSR!(optimizer::TDVP{T}) where {T<:Complex{<:AbstractFloat}}
     conj_G = conj(G)
     avg_G.+= G
     mul!(workspace.plus_S,conj_G,transpose(G))
-    S.+=workspace.plus_S 
+    S.+=@view workspace.plus_S[:,:] 
 end
 
 function Reconfigure!(optimizer::TDVP{T}) where {T<:Complex{<:AbstractFloat}} #... the gradient tensor

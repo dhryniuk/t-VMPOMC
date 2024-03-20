@@ -49,7 +49,7 @@ N_MC::Int64 = 250#10*4*χ^2
 δ::Float64 = 0.01
 F::Float64 = 1.0#0.9999
 ϵ::Float64 = parse(Float64,ARGS[4])
-N_iterations::Int64 = 500
+N_iterations::Int64 = 50
 last_iteration_step::Int64 = 1
 ising_int = "2DIsing"
 

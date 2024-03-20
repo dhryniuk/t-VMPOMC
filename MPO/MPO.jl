@@ -57,6 +57,17 @@ function ∂MPO(sample::Projector, L_set::Vector{<:Matrix{T}}, R_set::Vector{<:M
     return cache.∂
 end
 
+function conj_∂MPO(sample::Projector, L_set::Vector{<:Matrix{T}}, R_set::Vector{<:Matrix{T}}, params::Parameters, cache::Workspace, mpo::MPO{T}) where {T<:Complex{<:AbstractFloat}} 
+    cache.∂ = zeros(T, params.N, params.χ, params.χ, 4)
+    for m::UInt8 in 1:params.N
+        mul!(cache.B,R_set[params.N+1-m],L_set[m])
+        for i::UInt8=1:params.χ, j::UInt8=1:params.χ
+            cache.∂[m,i,j,idx(sample,m)] += conj(cache.B[j,i])
+        end
+    end
+    return cache.∂
+end
+
 
 
 
@@ -111,6 +122,17 @@ function ∂MPO(sample::Projector, L_set::Vector{<:Matrix{T}}, R_set::Vector{<:M
     end
     #display(cache.∂)
     #error()
+    return cache.∂
+end
+
+function conj_∂MPO(sample::Projector, L_set::Vector{<:Matrix{T}}, R_set::Vector{<:Matrix{T}}, params::Parameters, cache::Workspace, mpo::TI_MPO{T}) where {T<:Complex{<:AbstractFloat}} 
+    cache.∂ = zeros(T, params.χ, params.χ, 4)
+    for m::UInt8 in 1:params.N
+        mul!(cache.B,R_set[params.N+1-m],L_set[m])
+        for i::UInt8=1:params.χ, j::UInt8=1:params.χ
+            @inbounds cache.∂[i,j,idx(sample,m)] += conj( cache.B[j,i] )
+        end
+    end
     return cache.∂
 end
 

@@ -17,8 +17,8 @@ mutable struct Workspace{T<:Complex{<:AbstractFloat}}
     bra_L_l2::Matrix{T}
     #∂::Array{T,3}
     #Δ::Array{T,3}
-    ∂::Array{T}
-    Δ::Array{T}
+    ∂::Array{T,4}
+    Δ::Array{T,4}
     
     sample::Projector
     micro_sample::Projector
