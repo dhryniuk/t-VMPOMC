@@ -45,7 +45,7 @@ N_MC::Int64 = 100
 ϵ::Float64 = parse(Float64,ARGS[4])
 N_iterations::Int64 = 500
 last_iteration_step::Int64 = 1
-ising_int = "2DIsing"
+ising_int = "Ising"
 
 
 #Save parameters to file:
@@ -53,7 +53,7 @@ if mpi_cache.rank == 0
     
     start = now()
     
-    dir = "2D_Ising_decay_chi$(χ)_N$(N)_hx$(hx)"
+    dir = "1D_Ising_decay_chi$(χ)_N$(N)_hx$(hx)"
 
     if isdir(dir)==false
         mkdir(dir)
@@ -79,7 +79,7 @@ if mpi_cache.rank == 0
         optimizer = TDVP(sampler, mpo, list_l1, ϵ, params, ising_int)
         normalize_MPO!(params, optimizer)
 
-        list_of_parameters = open("params.data", "w")
+        list_of_parameters = open("1D_Ising_decay_chi$(χ)_N$(N)_hx$(hx).params", "w")
         #redirect_stdout(list_of_parameters)
         #display(list_of_parameters, params)
         #display(list_of_parameters, mpi_cache)
@@ -93,12 +93,12 @@ if mpi_cache.rank == 0
     else
         error()
         cd(dir)
-        list_of_C = open("list_of_C.data", "r")
+        list_of_C = open("list_of_C_chi$(χ)_N$(N)_hx$(hx)_γd$(γ_d).data", "r")
         last_iteration_step=countlines(list_of_C)+1
 
         ### NEED TO ALSO CHECK IF OTHER PARAMETERS ARE THE SAME BY EXPLICITLY COMPARING THE list_of_parameters FILES
     
-        A_init = load("MPO_density_matrix.jld")["MPO_density_matrix"]
+        A_init = load("MPO_density_matrix_chi$(χ)_N$(N)_hx$(hx)_γd$(γ_d).jld")["MPO_density_matrix"]
         A = reshape(A_init,χ,χ,4)
         
         A = normalize_MPO!(params, A)
@@ -137,10 +137,10 @@ if mpi_cache.rank == 0
     my = real(average_magnetization(params,mpo,sy))
     mz = real(average_magnetization(params,mpo,sz))
 
-    list_of_C = open("list_of_C.data", "a")
+    list_of_C = open("list_of_C_chi$(χ)_N$(N)_hx$(hx)_γd$(γ_d).data", "a")
     println(list_of_C, real(optimizer.optimizer_cache.mlL)/N)
     close(list_of_C)
-    list_of_mag = open("list_of_mag.data", "a")
+    list_of_mag = open("list_of_mag_chi$(χ)_N$(N)_hx$(hx)_γd$(γ_d).data", "a")
     println(list_of_mag, mx, ",", my, ",", mz)
     close(list_of_mag)
 end
@@ -169,14 +169,30 @@ for k in last_iteration_step:N_iterations
     #Record observables:
     if mpi_cache.rank == 0
 
-        list_of_C = open("list_of_C.data", "a")
+        list_of_C = open("list_of_C_chi$(χ)_N$(N)_hx$(hx)_γd$(γ_d).data", "a")
         println(list_of_C, real(optimizer.optimizer_cache.mlL)/N)
         close(list_of_C)
+
+        """
+        mx = real(tensor_calculate_magnetization(params,mpo,sx,1))
+        my = real(tensor_calculate_magnetization(params,mpo,sy,1))
+        mz = real(tensor_calculate_magnetization(params,mpo,sz,1))
+        list_of_mag = open("s1_list_of_mag_chi$(χ)_N$(N)_hx$(hx)_γd$(γ_d).data", "a")
+        println(list_of_mag, mx, ",", my, ",", mz)
+        close(list_of_mag)
+
+        mx = real(tensor_calculate_magnetization(params,mpo,sx,2))
+        my = real(tensor_calculate_magnetization(params,mpo,sy,2))
+        mz = real(tensor_calculate_magnetization(params,mpo,sz,2))
+        list_of_mag = open("s2_list_of_mag_chi$(χ)_N$(N)_hx$(hx)_γd$(γ_d).data", "a")
+        println(list_of_mag, mx, ",", my, ",", mz)
+        close(list_of_mag)
+        """
 
         mx = real(average_magnetization(params,mpo,sx))
         my = real(average_magnetization(params,mpo,sy))
         mz = real(average_magnetization(params,mpo,sz))
-        list_of_mag = open("list_of_mag.data", "a")
+        list_of_mag = open("list_of_mag_chi$(χ)_N$(N)_hx$(hx)_γd$(γ_d).data", "a")
         println(list_of_mag, mx, ",", my, ",", mz)
         close(list_of_mag)
 
@@ -185,14 +201,14 @@ for k in last_iteration_step:N_iterations
         close(o)
 
         if mod(k,10)==1
-            o = open("Ising_decay.out", "a")
+            o = open("Ising_decay_chi$(χ)_N$(N)_hx$(hx).out", "a")
             #redirect_stdout(o)
             println(o,"k=$k: ", real(optimizer.optimizer_cache.mlL)/N, " ; acc_rate=", round(acc*100,sigdigits=2), "%", " \n M_x: ", round(mx,sigdigits=4), " \n M_y: ", round(my,sigdigits=4), " \n M_z: ", round(mz,sigdigits=4))
             println(o,Base.Sys.free_memory())
             close(o)
         end
 
-        save("MPO_density_matrix.jld", "MPO_density_matrix", optimizer.mpo.A)
+        save("MPO_density_matrix_chi$(χ)_N$(N)_hx$(hx)_γd$(γ_d).jld", "MPO_density_matrix", optimizer.mpo.A)
         global f = time()
         list_of_times = open("list_of_times.data", "a")
         println(list_of_times, "Total for step ", k, ": ", round(f-a; sigdigits = 3))

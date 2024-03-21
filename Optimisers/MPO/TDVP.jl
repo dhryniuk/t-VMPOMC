@@ -168,7 +168,7 @@ function Update!(optimizer::TDVP{T}, sample::Projector) where {T<:Complex{<:Abst
 
     ρ_sample::T = trMPO(params, sample, mpo)
     cache.L_set = L_MPO_strings!(cache.L_set, sample, mpo, params, cache)
-    cache.Δ = conj_∂MPO(sample, cache.L_set, cache.R_set, params, cache, optimizer.mpo)./ρ_sample
+    cache.Δ = ∂MPO(sample, cache.L_set, cache.R_set, params, cache, optimizer.mpo)./ρ_sample
     #display(size(cache.Δ))
     #error()
 #display(sample)
@@ -191,10 +191,10 @@ function Update!(optimizer::TDVP{T}, sample::Projector) where {T<:Complex{<:Abst
     #Update joint ensemble average:
     #display(size(cache.Δ))
     #display(size(data.L∂L))
-    data.L∂L.+=local_L*cache.Δ ###conj(cache.Δ)?
+    data.L∂L.+=local_L*conj(cache.Δ) ###conj(cache.Δ)?
 
     #Update disjoint ensemble average:
-    data.ΔLL.+=cache.Δ
+    data.ΔLL.+=conj(cache.Δ)
     #data.ΔLL.+=(cache.Δ)*adoint(local_L)
 
     #Mean local Lindbladian:
@@ -211,7 +211,10 @@ function UpdateSR!(optimizer::TDVP{T}) where {T<:Complex{<:AbstractFloat}}
     conj_G = conj(G)
     avg_G.+= G
     mul!(workspace.plus_S,conj_G,transpose(G))
-    S.+=@view workspace.plus_S[:,:] 
+    S.+=workspace.plus_S ###SLOWEST PART BY FAR
+    #@inbounds @simd for i in eachindex(S)
+    #    S[i] = S[i] + workspace.plus_S[i]
+    #end
 end
 
 function Reconfigure!(optimizer::TDVP{T}) where {T<:Complex{<:AbstractFloat}} #... the gradient tensor
