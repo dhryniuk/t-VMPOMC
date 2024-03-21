@@ -7,7 +7,7 @@ import Random
 using MPI
 using Dates
 using JLD
-using ProfileView
+#using ProfileView
 
 
 mpi_cache = set_mpi()
@@ -40,10 +40,11 @@ const list_l1 = [l1 for _ in 1:N]
 #display(list_l1)
 
 
-N_MC::Int64 = 100
-δ::Float64 = 0.01
-ϵ::Float64 = parse(Float64,ARGS[4])
-N_iterations::Int64 = 500
+N_MC::Int64 = parse(Int64,ARGS[4])
+δ::Float64 = parse(Float64,ARGS[5])
+N_iterations::Int64 = parse(Int64,ARGS[6])
+ϵ::Float64 = parse(Float64,ARGS[7])
+
 last_iteration_step::Int64 = 1
 ising_int = "2DIsing"
 
