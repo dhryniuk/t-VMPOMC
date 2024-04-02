@@ -65,8 +65,10 @@ end
 function TDVP(sampler::MetropolisSampler, mpo::MPO{T}, list_l1::Vector{Matrix{T}}, ϵ::Float64, params::Parameters, ising_int::String) where {T<:Complex{<:AbstractFloat}}
     if ising_int=="Ising" 
         optimizer = TDVPl1(mpo, sampler, TDVPCache(mpo.A, params), list_l1, Ising(), LocalDephasing(), params, ϵ, set_workspace(mpo.A, params))
-    elseif ising_int=="2DIsing"
-        optimizer = TDVPl1(mpo, sampler, TDVPCache(mpo.A, params), list_l1, IsingTwoD(), LocalDephasing(), params, ϵ, set_workspace(mpo.A, params))
+    elseif ising_int=="SquareIsing"
+        optimizer = TDVPl1(mpo, sampler, TDVPCache(mpo.A, params), list_l1, SquareIsing(), LocalDephasing(), params, ϵ, set_workspace(mpo.A, params))
+    elseif ising_int=="TriangularIsing"
+        optimizer = TDVPl1(mpo, sampler, TDVPCache(mpo.A, params), list_l1, TriangularIsing(), LocalDephasing(), params, ϵ, set_workspace(mpo.A, params))
     else
         error("Unrecognized Ising interaction")
     end
@@ -132,7 +134,13 @@ mutable struct TI_TDVPl1{T<:Complex{<:AbstractFloat}} <: TDVP{T}
 
 end
 
-function TDVP(sampler::MetropolisSampler, mpo::TI_MPO{T}, l1::Matrix{T}, ϵ::Float64, params::Parameters) where {T<:Complex{<:AbstractFloat}} 
-    optimizer = TI_TDVPl1(mpo, sampler, TI_TDVPCache(mpo.A, params), l1, Ising(), LocalDephasing(), params, ϵ, set_workspace(mpo.A, params))
+function TDVP(sampler::MetropolisSampler, mpo::TI_MPO{T}, l1::Matrix{T}, ϵ::Float64, params::Parameters, ising_int::String) where {T<:Complex{<:AbstractFloat}} 
+    if ising_int=="Ising" 
+        optimizer = TI_TDVPl1(mpo, sampler, TI_TDVPCache(mpo.A, params), l1, Ising(), LocalDephasing(), params, ϵ, set_workspace(mpo.A, params))
+    elseif ising_int=="LRIsing"
+        optimizer = TI_TDVPl1(mpo, sampler, TI_TDVPCache(mpo.A, params), l1, LongRangeIsing(params), LocalDephasing(), params, ϵ, set_workspace(mpo.A, params))
+    else
+        error("Unrecognized Ising interaction")
+    end
     return optimizer
 end

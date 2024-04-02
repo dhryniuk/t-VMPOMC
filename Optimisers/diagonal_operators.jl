@@ -6,7 +6,9 @@ abstract type IsingInteraction <: DiagonalOperators end
 
 struct Ising <: IsingInteraction end
 
-struct IsingTwoD <: IsingInteraction end
+struct SquareIsing <: IsingInteraction end
+
+struct TriangularIsing <: IsingInteraction end
 
 struct LongRangeIsing <: IsingInteraction
     α::Float64

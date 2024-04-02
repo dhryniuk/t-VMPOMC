@@ -12,7 +12,7 @@ function Mono_Metropolis_sweep_left(sample::Projector, optimizer::TDVPl1{T}) whe
     cache.C_mat = cache.L_set[params.N+1]
     C = tr(cache.C_mat) #current probability amplitude
 
-    for i::UInt8 in params.N:-1:1
+    for i::UInt16 in params.N:-1:1
         sample_p = Projector(sample)
         draw = draw_excluded(dINDEX[(sample.ket[i],sample.bra[i])])
         (sample_p.ket[i], sample_p.bra[i]) = dREVINDEX[draw]
@@ -43,7 +43,7 @@ function Mono_Metropolis_sweep_right(sample::Projector, optimizer::TDVPl1{T}) wh
     cache.C_mat = cache.R_set[params.N+1]
     C = tr(cache.C_mat) #current probability amplitude
 
-    for i::UInt8 in 1:params.N
+    for i::UInt16 in 1:params.N
         sample_p = Projector(sample)
         draw = draw_excluded(dINDEX[(sample.ket[i],sample.bra[i])])
         (sample_p.ket[i], sample_p.bra[i]) = dREVINDEX[draw]
@@ -99,7 +99,7 @@ function Mono_Metropolis_sweep_left(sample::Projector, optimizer::TI_TDVPl1{T}) 
     cache.C_mat = cache.L_set[params.N+1]
     C = tr(cache.C_mat) #current probability amplitude
 
-    for i::UInt8 in params.N:-1:1
+    for i::UInt16 in params.N:-1:1
         sample_p = Projector(sample)
         draw = draw_excluded(dINDEX[(sample.ket[i],sample.bra[i])])
         (sample_p.ket[i], sample_p.bra[i]) = dREVINDEX[draw]
@@ -130,7 +130,7 @@ function Mono_Metropolis_sweep_right(sample::Projector, optimizer::TI_TDVPl1{T})
     cache.C_mat = cache.R_set[params.N+1]
     C = tr(cache.C_mat) #current probability amplitude
 
-    for i::UInt8 in 1:params.N
+    for i::UInt16 in 1:params.N
         sample_p = Projector(sample)
         draw = draw_excluded(dINDEX[(sample.ket[i],sample.bra[i])])
         (sample_p.ket[i], sample_p.bra[i]) = dREVINDEX[draw]

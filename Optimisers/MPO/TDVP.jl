@@ -5,7 +5,7 @@ function Initialize!(optimizer::TDVPl1{T}) where {T<:Complex{<:AbstractFloat}}
     optimizer.workspace = set_workspace(optimizer.mpo.A, optimizer.params)
 end
 
-function TDVP_one_body_Lindblad_term!(local_L::T, sample::Projector, j::UInt8, optimizer::TDVPl1{T}) where {T<:Complex{<:AbstractFloat}} 
+function TDVP_one_body_Lindblad_term!(local_L::T, sample::Projector, j::UInt16, optimizer::TDVPl1{T}) where {T<:Complex{<:AbstractFloat}} 
 
     l1 = optimizer.list_l1[j]
     A = optimizer.mpo.A
@@ -58,7 +58,7 @@ function Initialize!(optimizer::TI_TDVPl1{T}) where {T<:Complex{<:AbstractFloat}
     optimizer.workspace = set_workspace(optimizer.mpo.A, optimizer.params)
 end
 
-function TDVP_one_body_Lindblad_term!(local_L::T, sample::Projector, j::UInt8, optimizer::TI_TDVPl1{T}) where {T<:Complex{<:AbstractFloat}} 
+function TDVP_one_body_Lindblad_term!(local_L::T, sample::Projector, j::UInt16, optimizer::TI_TDVPl1{T}) where {T<:Complex{<:AbstractFloat}} 
 
     l1 = optimizer.l1
     A = optimizer.mpo.A
@@ -86,7 +86,7 @@ function Ising_interaction_energy(ising_op::Ising, sample::Projector, optimizer:
     params = optimizer.params
 
     l_int::T=0
-    for j::UInt8 in 1:params.N-1
+    for j::UInt16 in 1:params.N-1
         l_int_ket = (2*sample.ket[j]-1)*(2*sample.ket[j+1]-1)
         l_int_bra = (2*sample.bra[j]-1)*(2*sample.bra[j+1]-1)
         l_int += l_int_ket-l_int_bra
@@ -98,14 +98,32 @@ function Ising_interaction_energy(ising_op::Ising, sample::Projector, optimizer:
     return -1.0im*params.J*l_int
 end
 
-function Ising_interaction_energy(ising_op::IsingTwoD, sample::Projector, optimizer::TDVP{T}) where {T<:Complex{<:AbstractFloat}} 
+function Ising_interaction_energy(ising_op::LongRangeIsing, sample::Projector, optimizer::Optimizer{T}) where {T<:Complex{<:AbstractFloat}} 
+    A = optimizer.mpo.A
+    params = optimizer.params
+
+    l_int_ket::T = 0.0
+    l_int_bra::T = 0.0
+    l_int::T = 0.0
+    for i::Int16 in 1:params.N-1
+        for j::Int16 in i+1:params.N
+            l_int_ket = (2*sample.ket[i]-1)*(2*sample.ket[j]-1)
+            l_int_bra = (2*sample.bra[i]-1)*(2*sample.bra[j]-1)
+            dist = min(abs(i-j), abs(params.N+i-j))^ising_op.α
+            l_int += (l_int_ket-l_int_bra)/dist
+        end
+    end
+    return -1.0im*params.J*l_int/ising_op.Kac_norm
+end
+
+function Ising_interaction_energy(ising_op::SquareIsing, sample::Projector, optimizer::TDVP{T}) where {T<:Complex{<:AbstractFloat}} 
     A = optimizer.mpo.A
     params = optimizer.params
     L = isqrt(params.N)
 
     l_int::T=0
-    for k::UInt8 in 0:L-1
-        for j::UInt8 in 1:L
+    for k::UInt16 in 0:L-1
+        for j::UInt16 in 1:L
 
             #Horizontal:
             l_int_ket = (2*sample.ket[j+k*L]-1)*(2*sample.ket[mod(j,L)+1+k*L]-1)
@@ -122,6 +140,38 @@ function Ising_interaction_energy(ising_op::IsingTwoD, sample::Projector, optimi
 
     return -1.0im*params.J*l_int
 end
+
+function Ising_interaction_energy(ising_op::TriangularIsing, sample::Projector, optimizer::TDVP{T}) where {T<:Complex{<:AbstractFloat}} 
+    A = optimizer.mpo.A
+    params = optimizer.params
+    L = isqrt(params.N)
+
+    l_int::T=0
+    for k::UInt16 in 0:L-1
+        for j::UInt16 in 1:L
+
+            #Horizontal:
+            l_int_ket = (2*sample.ket[j+k*L]-1)*(2*sample.ket[mod(j,L)+1+k*L]-1)
+            l_int_bra = (2*sample.bra[j+k*L]-1)*(2*sample.bra[mod(j,L)+1+k*L]-1)
+            l_int += l_int_ket-l_int_bra
+
+            #Vertical:
+            l_int_ket = (2*sample.ket[j+k*L]-1)*(2*sample.ket[j+mod(k+1,L)*L]-1)
+            l_int_ket = (2*sample.ket[j+k*L]-1)*(2*sample.ket[j+mod(k+1,L)*L]-1)
+            l_int_bra = (2*sample.bra[j+k*L]-1)*(2*sample.bra[j+mod(k+1,L)*L]-1)
+            l_int += l_int_ket-l_int_bra
+
+            #Diagonal:
+            l_int_ket = (2*sample.ket[j+k*L]-1)*(2*sample.ket[mod(j,L)+1+mod(k+1,L)*L]-1)
+            l_int_bra = (2*sample.bra[j+k*L]-1)*(2*sample.bra[mod(j,L)+1+mod(k+1,L)*L]-1)
+            l_int += l_int_ket-l_int_bra
+
+        end
+    end
+
+    return -1.0im*params.J*l_int
+end
+
 
 """
 for k in 0:N-1
@@ -146,7 +196,7 @@ function SweepLindblad!(sample::Projector, ρ_sample::T, optimizer::TDVP{T}) whe
     temp_local_L::T = 0
 
     #Calculate L∂L*:
-    for j::UInt8 in 1:params.N
+    for j::UInt16 in 1:params.N
         temp_local_L = TDVP_one_body_Lindblad_term!(temp_local_L, sample, j, optimizer)
     end
 

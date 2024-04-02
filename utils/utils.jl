@@ -101,7 +101,7 @@ function make_two_body_Lindblad_Hamiltonian(A, B)
 end
 
 #Ising bit-basis:
-function generate_bit_basis(N)#(N::UInt8)
+function generate_bit_basis(N)#(N::UInt16)
     set::Vector{Vector{Bool}} = [[true], [false]]
     @simd for i in 1:N-1
         new_set::Vector{Vector{Bool}} = []

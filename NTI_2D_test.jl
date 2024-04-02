@@ -51,7 +51,7 @@ F::Float64 = 1.0#0.9999
 ϵ::Float64 = parse(Float64,ARGS[4])
 N_iterations::Int64 = 50
 last_iteration_step::Int64 = 1
-ising_int = "2DIsing"
+ising_int = "SquareIsing"
 
 #Save parameters to file:
 if mpi_cache.rank == 0

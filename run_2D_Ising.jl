@@ -46,15 +46,16 @@ N_iterations::Int64 = parse(Int64,ARGS[6])
 ϵ::Float64 = parse(Float64,ARGS[7])
 
 last_iteration_step::Int64 = 1
-ising_int = "2DIsing"
-
+#ising_int = "SquareIsing"
+ising_int = "TriangularIsing"
 
 #Save parameters to file:
 if mpi_cache.rank == 0
     
     start = now()
     
-    dir = "2D_Ising_decay_chi$(χ)_N$(N)_hx$(hx)"
+    #dir = "2D_Ising_decay_chi$(χ)_N$(N)_hx$(hx)"
+    dir = "results/Triangular_Ising_decay_chi$(χ)_N$(N)_hx$(hx)"
 
     if isdir(dir)==false
         mkdir(dir)
