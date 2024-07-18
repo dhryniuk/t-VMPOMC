@@ -1,6 +1,6 @@
-export TDVP, ComputeGradient!, TensorComputeGradient!, MPI_mean!, Optimize!, OptimizeNoNormalize!
+export TDVP, compute_gradient!, tensor_compute_gradient!, MPI_mean!, optimize!#, optimize_no_normalize!
 
-function Initialize!(optimizer::TDVPl1{T}) where {T<:Complex{<:AbstractFloat}}
+function initialize!(optimizer::TDVPl1{T}) where {T<:Complex{<:AbstractFloat}}
     optimizer.optimizer_cache = TDVPCache(optimizer.mpo.A, optimizer.params)
     optimizer.workspace = set_workspace(optimizer.mpo.A, optimizer.params)
 end
@@ -47,7 +47,7 @@ function normalize_MPO!(params::Parameters, optimizer::TI_TDVPl1{T}) where {T<:C
     optimizer.mpo.A = A
 end
 
-function Initialize!(optimizer::TI_TDVPl1{T}) where {T<:Complex{<:AbstractFloat}}
+function initialize!(optimizer::TI_TDVPl1{T}) where {T<:Complex{<:AbstractFloat}}
     optimizer.optimizer_cache = TI_TDVPCache(optimizer.mpo.A, optimizer.params)
     optimizer.workspace = set_workspace(optimizer.mpo.A, optimizer.params)
 end
@@ -164,7 +164,7 @@ function Ising_interaction_energy(ising_op::TriangularIsing, sample::Projector, 
     return -1.0im*params.J*l_int
 end
 
-function SweepLindblad!(sample::Projector, ρ_sample::T, optimizer::TDVP{T}) where {T<:Complex{<:AbstractFloat}} 
+function sweep_Lindblad!(sample::Projector, ρ_sample::T, optimizer::TDVP{T}) where {T<:Complex{<:AbstractFloat}} 
     params = optimizer.params
     micro_sample = optimizer.workspace.micro_sample
     micro_sample = Projector(sample)
@@ -181,7 +181,7 @@ function SweepLindblad!(sample::Projector, ρ_sample::T, optimizer::TDVP{T}) whe
     return temp_local_L
 end
 
-function Update!(optimizer::TDVP{T}, sample::Projector) where {T<:Complex{<:AbstractFloat}} #... the ensemble averages etc.
+function update!(optimizer::TDVP{T}, sample::Projector) where {T<:Complex{<:AbstractFloat}} #... the ensemble averages etc.
     params=optimizer.params
     mpo=optimizer.mpo
     data=optimizer.optimizer_cache
@@ -196,7 +196,7 @@ function Update!(optimizer::TDVP{T}, sample::Projector) where {T<:Complex{<:Abst
     cache.Δ = ∂MPO(sample, cache.L_set, cache.R_set, params, cache, optimizer.mpo)./ρ_sample
 
     #Sweep lattice:
-    local_L = SweepLindblad!(sample, ρ_sample, optimizer)
+    local_L = sweep_Lindblad!(sample, ρ_sample, optimizer)
 
     #Add in Ising interaction terms:
     l_int = Ising_interaction_energy(optimizer.ising_op, sample, optimizer)
@@ -213,7 +213,7 @@ function Update!(optimizer::TDVP{T}, sample::Projector) where {T<:Complex{<:Abst
     data.mlL += local_L
 end
 
-function UpdateSR!(optimizer::TI_TDVPl1{T}) where {T<:Complex{<:AbstractFloat}}
+function update_SR!(optimizer::TI_TDVPl1{T}) where {T<:Complex{<:AbstractFloat}}
     S::Array{T,2} = optimizer.optimizer_cache.S
     avg_G::Vector{T} = optimizer.optimizer_cache.avg_G
     params::Parameters = optimizer.params
@@ -233,7 +233,7 @@ function UpdateSR!(optimizer::TI_TDVPl1{T}) where {T<:Complex{<:AbstractFloat}}
 end
 
 
-function Reconfigure!(optimizer::TI_TDVPl1{T}) where {T<:Complex{<:AbstractFloat}} #... the gradient tensor
+function reconfigure!(optimizer::TI_TDVPl1{T}) where {T<:Complex{<:AbstractFloat}} #... the gradient tensor
     data = optimizer.optimizer_cache
     N_MC = optimizer.sampler.N_MC
     ϵ = optimizer.ϵ
@@ -258,7 +258,7 @@ function Reconfigure!(optimizer::TI_TDVPl1{T}) where {T<:Complex{<:AbstractFloat
     data.∇ = reshape(flat_grad,size(data.∇))
 end
 """
-function Reconfigure!(optimizer::TI_TDVPl1{T}) where {T<:Complex{<:AbstractFloat}} #... the gradient tensor
+function reconfigure!(optimizer::TI_TDVPl1{T}) where {T<:Complex{<:AbstractFloat}} #... the gradient tensor
     data = optimizer.optimizer_cache
     N_MC = optimizer.sampler.N_MC
     ϵ = optimizer.ϵ
@@ -287,7 +287,7 @@ function Reconfigure!(optimizer::TI_TDVPl1{T}) where {T<:Complex{<:AbstractFloat
     data.∇ = reshape(flat_grad, params.χ, params.χ, 4)
 end
 """
-function Finalize!(optimizer::TDVP{T}) where {T<:Complex{<:AbstractFloat}}
+function finalize!(optimizer::TDVP{T}) where {T<:Complex{<:AbstractFloat}}
     N_MC = optimizer.sampler.N_MC
     data = optimizer.optimizer_cache
 
@@ -295,32 +295,32 @@ function Finalize!(optimizer::TDVP{T}) where {T<:Complex{<:AbstractFloat}}
     data.ΔLL .*= data.mlL
 end
 
-function ComputeGradient!(optimizer::TDVP{T}) where {T<:Complex{<:AbstractFloat}}
+function compute_gradient!(optimizer::TDVP{T}) where {T<:Complex{<:AbstractFloat}}
 
-    Initialize!(optimizer)
+    initialize!(optimizer)
     sample = optimizer.workspace.sample
 
-    sample = MPO_Metropolis_burn_in(optimizer)
+    sample = MPO_Metropolis_burn_in!(optimizer)
 
     for _ in 1:optimizer.sampler.N_MC
 
         #Generate sample:
-        sample, acc = Metropolis_sweep_left(sample, optimizer)
+        sample, acc = Metropolis_sweep_left!(sample, optimizer)
         optimizer.optimizer_cache.acceptance += acc/(optimizer.params.N*optimizer.sampler.N_MC)
 
         #Compute local estimators:
-        Update!(optimizer, sample) 
+        update!(optimizer, sample) 
 
         #Update metric tensor:
-        UpdateSR!(optimizer)
+        update_SR!(optimizer)
     end
 end
 
-function Optimize!(optimizer::TDVP{T}, δ::Float64) where {T<:Complex{<:AbstractFloat}}
+function optimize!(optimizer::TDVP{T}, δ::Float64) where {T<:Complex{<:AbstractFloat}}
     A = optimizer.mpo.A
 
-    Finalize!(optimizer)
-    Reconfigure!(optimizer)
+    finalize!(optimizer)
+    reconfigure!(optimizer)
 
     ∇  = optimizer.optimizer_cache.∇
 
@@ -332,11 +332,11 @@ function Optimize!(optimizer::TDVP{T}, δ::Float64) where {T<:Complex{<:Abstract
     normalize_MPO!(optimizer.params, optimizer)
 end
 
-function OptimizeNoNormalize!(optimizer::TDVP{T}, δ::Float64) where {T<:Complex{<:AbstractFloat}}
+function optimize_no_normalize!(optimizer::TDVP{T}, δ::Float64) where {T<:Complex{<:AbstractFloat}}
     A = optimizer.mpo.A
 
-    Finalize!(optimizer)
-    Reconfigure!(optimizer)
+    finalize!(optimizer)
+    reconfigure!(optimizer)
 
     ∇  = optimizer.optimizer_cache.∇
 
@@ -344,7 +344,6 @@ function OptimizeNoNormalize!(optimizer::TDVP{T}, δ::Float64) where {T<:Complex
     new_A = A + δ*∇
     A = new_A
     optimizer.mpo.A = A
-
 end
 
 function MPI_mean!(optimizer::TDVP{T}, mpi_cache) where {T<:Complex{<:AbstractFloat}}
@@ -372,8 +371,7 @@ function MPI_mean!(optimizer::TDVP{T}, mpi_cache) where {T<:Complex{<:AbstractFl
     end
 end
 
-function TensorSweepLindblad!(sample::Projector, ρ_sample::T, optimizer::TDVP{T}) where {T<:Complex{<:AbstractFloat}} 
-
+function tensor_sweep_Lindblad!(sample::Projector, ρ_sample::T, optimizer::TDVP{T}) where {T<:Complex{<:AbstractFloat}} 
     params = optimizer.params
     cache = optimizer.workspace
     liouvillian = optimizer.l1
@@ -392,7 +390,7 @@ function TensorSweepLindblad!(sample::Projector, ρ_sample::T, optimizer::TDVP{T
     return temp_local_L
 end
 
-function TensorUpdate!(optimizer::TDVP{T}, sample::Projector, interaction_energy) where {T<:Complex{<:AbstractFloat}} #... the ensemble averages etc.
+function tensor_update!(optimizer::TDVP{T}, sample::Projector, interaction_energy) where {T<:Complex{<:AbstractFloat}} #... the ensemble averages etc.
     params=optimizer.params
     mpo=optimizer.mpo
     data=optimizer.optimizer_cache
@@ -407,7 +405,7 @@ function TensorUpdate!(optimizer::TDVP{T}, sample::Projector, interaction_energy
     cache.Δ = ∂MPO(sample, cache.L_set, cache.R_set, params, cache, optimizer.mpo)./ρ_sample
 
     #Sweep lattice:
-    local_L = TensorSweepLindblad!(sample, ρ_sample, optimizer)
+    local_L = tensor_sweep_Lindblad!(sample, ρ_sample, optimizer)
 
     #Add in Ising interaction terms:
     l_int = Ising_interaction_energy(optimizer.ising_op, sample, optimizer)
@@ -425,23 +423,23 @@ function TensorUpdate!(optimizer::TDVP{T}, sample::Projector, interaction_energy
     return l_int
 end
 
-function TensorComputeGradient!(optimizer::TDVP{T}) where {T<:Complex{<:AbstractFloat}}
-    Initialize!(optimizer)
+function tensor_compute_gradient!(optimizer::TDVP{T}) where {T<:Complex{<:AbstractFloat}}
+    initialize!(optimizer)
     sample = optimizer.workspace.sample
-    sample = MPO_Metropolis_burn_in(optimizer)
+    sample = MPO_Metropolis_burn_in!(optimizer)
 
     interaction_energy = 0.0+0.0im
 
     for _ in 1:optimizer.sampler.N_MC
 
         #Generate sample:
-        sample, acc = Metropolis_sweep_left(sample, optimizer)
+        sample, acc = Metropolis_sweep_left!(sample, optimizer)
         optimizer.optimizer_cache.acceptance += acc/(optimizer.params.N*optimizer.sampler.N_MC)
 
         #Compute local estimators:
-        interaction_energy += TensorUpdate!(optimizer, sample, interaction_energy) 
+        interaction_energy += tensor_update!(optimizer, sample, interaction_energy) 
 
         #Update metric tensor:
-        UpdateSR!(optimizer)
+        update_SR!(optimizer)
     end
 end

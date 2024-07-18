@@ -147,7 +147,7 @@ for k in last_iteration_step:N_iterations
         if mpi_cache.rank == 0
             global a = time()
         end
-        TensorComputeGradient!(optimizer)
+        tensor_compute_gradient!(optimizer)
         #ComputeGradient!(optimizer)
         #ComputeGradient!(optimizer, basis)
         if mpi_cache.rank == 0
@@ -156,7 +156,7 @@ for k in last_iteration_step:N_iterations
         MPI_mean!(optimizer,mpi_cache)
         if mpi_cache.rank == 0
             global c = time()
-            Optimize!(optimizer,δ*F^(k))
+            optimize!(optimizer,δ*F^(k))
             #Optimize!(optimizer,basis,δ*F^(k))
             global d = time()
         end

@@ -2,7 +2,7 @@
 
 
 #Sweeps lattice from right to left
-function Metropolis_sweep_left(sample::Projector, optimizer::TI_TDVPl1{T}) where {T<:Complex{<:AbstractFloat}} 
+function Metropolis_sweep_left!(sample::Projector, optimizer::TI_TDVPl1{T}) where {T<:Complex{<:AbstractFloat}} 
     A = optimizer.mpo.A
     params = optimizer.params
     ws = optimizer.workspace
@@ -45,7 +45,7 @@ function Metropolis_sweep_left(sample::Projector, optimizer::TI_TDVPl1{T}) where
 end
 
 #Sweeps lattice from left to right
-function Metropolis_sweep_right(sample::Projector, optimizer::TI_TDVPl1{T}) where {T<:Complex{<:AbstractFloat}} 
+function Metropolis_sweep_right!(sample::Projector, optimizer::TI_TDVPl1{T}) where {T<:Complex{<:AbstractFloat}} 
     A = optimizer.mpo.A
     params = optimizer.params
     ws = optimizer.workspace
@@ -87,7 +87,7 @@ function Metropolis_sweep_right(sample::Projector, optimizer::TI_TDVPl1{T}) wher
     return sample, acc
 end
 
-function MPO_Metropolis_burn_in(optimizer::TI_TDVPl1{T}) where {T<:Complex{<:AbstractFloat}} 
+function MPO_Metropolis_burn_in!(optimizer::TI_TDVPl1{T}) where {T<:Complex{<:AbstractFloat}} 
     A=optimizer.mpo.A
     params=optimizer.params
     ws=optimizer.workspace
@@ -98,8 +98,8 @@ function MPO_Metropolis_burn_in(optimizer::TI_TDVPl1{T}) where {T<:Complex{<:Abs
 
     # Perform burn_in:
     for _ in 1:optimizer.sampler.burn
-        sample,_ = Metropolis_sweep_left(sample,optimizer)
-        sample,_ = Metropolis_sweep_right(sample,optimizer)
+        sample,_ = Metropolis_sweep_left!(sample,optimizer)
+        sample,_ = Metropolis_sweep_right!(sample,optimizer)
     end
     return sample
 end
