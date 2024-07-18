@@ -1,7 +1,7 @@
 export calculate_z_magnetization, calculate_x_magnetization, calculate_y_magnetization, tensor_calculate_z_magnetization, calculate_spin_spin_correlation, calculate_steady_state_structure_factor
 
 #temporary:
-export hermetize_MPO, increase_bond_dimension, L_MPO_strings!, density_matrix, calculate_purity, calculate_Renyi_entropy, tensor_purity
+export hermetize_MPO, increase_bond_dimension, L_MPO_products!, density_matrix, calculate_purity, calculate_Renyi_entropy, tensor_purity
 
 export compute_density_matrix
 function compute_density_matrix(params::Parameters, mpo, basis::Basis)
@@ -28,6 +28,15 @@ function hermetize_MPO(params::Parameters, A::Array{ComplexF64})
     new_A[:,:,1,1]=real(new_A[:,:,1,1])
     new_A[:,:,2,2]=real(new_A[:,:,2,2])
     return reshape(new_A,params.χ,params.χ,4)#::ComplexF64
+end
+
+export apply_operator_to_MPO!
+
+function apply_operator_to_MPO!(params::Parameters, mpo::MPO{ComplexF64}, op::Array{ComplexF64}, site::Int64)
+    A=reshape(mpo.A,params.N,params.χ,params.χ,2,2)
+    #@tensor A[site,a,b,c,d] := A[site,a,b,c,e]*op[e,d]
+    @tensor A[site,a,b,c,d] := A[site,a,b,e,d]*op[e,c]
+    mpo.A=reshape(A,params.N,params.χ,params.χ,4)
 end
 
 function calculate_x_magnetization(params::Parameters, A::Array{ComplexF64})

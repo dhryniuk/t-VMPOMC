@@ -70,8 +70,8 @@ if mpi_cache.rank == 0
         A_init = zeros(ComplexF64, N,χ,χ,4)
         for i in 1:N
             A_init[i,:,:,1].=1.0
-            A_init[i,:,:,2].=1.0
-            A_init[i,:,:,3].=1.0
+            A_init[i,:,:,2].=-1.0
+            A_init[i,:,:,3].=-1.0
             A_init[i,:,:,4].=1.0
         end
         A = deepcopy(A_init)
@@ -117,8 +117,8 @@ else
     A_init = zeros(ComplexF64, N,χ,χ,4)
     for i in 1:N
         A_init[i,:,:,1].=1.0
-        A_init[i,:,:,2].=1.0
-        A_init[i,:,:,3].=1.0
+        A_init[i,:,:,2].=-1.0
+        A_init[i,:,:,3].=-1.0
         A_init[i,:,:,4].=1.0
     end
     A = deepcopy(A_init)

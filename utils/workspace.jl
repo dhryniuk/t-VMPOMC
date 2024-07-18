@@ -15,10 +15,12 @@ mutable struct Workspace{T<:Complex{<:AbstractFloat}}
     C_mat::Matrix{T}
     bra_L_l1::Matrix{T}
     bra_L_l2::Matrix{T}
-    #∂::Array{T,3}
-    #Δ::Array{T,3}
-    ∂::Array{T,4}
-    Δ::Array{T,4}
+    
+    ∂::Array{T,3}
+    Δ::Array{T,3}
+    
+    #∂::Array{T,4}
+    #Δ::Array{T,4}
     
     sample::Projector
     micro_sample::Projector
@@ -33,6 +35,8 @@ mutable struct Workspace{T<:Complex{<:AbstractFloat}}
     #temp_local_L::T
     #temp_local_∇L::Array{T,3}
 
+    #Z::Float64
+    p_amp_sample::Float64
 end
 
 function set_workspace(A::Array{T,4}, params::Parameters) where {T<:Complex{<:AbstractFloat}} 
@@ -69,7 +73,7 @@ function set_workspace(A::Array{T,4}, params::Parameters) where {T<:Complex{<:Ab
         0.0+0.0im,
         0.0+0.0im#,
 
-        #0.0+0.0im,
+        #0.0
         #zeros(T,params.χ,params.χ,4)
         )
     return cache
@@ -107,9 +111,9 @@ function set_workspace(A::Array{T,3}, params::Parameters) where {T<:Complex{<:Ab
         0.0+0.0im,
         zeros(T,params.χ,params.χ,4),
         0.0+0.0im,
-        0.0+0.0im#,
+        0.0+0.0im,
 
-        #0.0+0.0im,
+        0.0
         #zeros(T,params.χ,params.χ,4)
         )
     return cache

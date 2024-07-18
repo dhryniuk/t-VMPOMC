@@ -40,7 +40,7 @@ const l1 = make_one_body_Lindbladian(hx*sx+hz*sz,sqrt(γ)*sm)
 
 display(l1)
 
-N_MC::Int64 = 10000#10*4*χ^2
+N_MC::Int64 = 2000#10*4*χ^2
 δ::Float64 = 0.01
 F::Float64 = 1.0#0.9999
 ϵ::Float64 = parse(Float64,ARGS[4])
@@ -75,7 +75,7 @@ if mpi_cache.rank == 0
         mpo = TI_MPO(A)
 
         sampler = MetropolisSampler(N_MC, 5)
-        optimizer = TDVP(sampler, mpo, l1, ϵ, params)
+        optimizer = TDVP(sampler, mpo, l1, ϵ, params, "Ising")
         normalize_MPO!(params, optimizer)
     else
         cd(dir)
@@ -111,7 +111,7 @@ MPI.bcast(last_iteration_step, mpi_cache.comm)
 MPI.Bcast!(A, 0, mpi_cache.comm)
 
 sampler = MetropolisSampler(N_MC, 5)
-optimizer = TDVP(sampler, mpo, l1, ϵ, params)
+optimizer = TDVP(sampler, mpo, l1, ϵ, params, "Ising")
 
 
 if mpi_cache.rank == 0
@@ -147,7 +147,8 @@ for k in last_iteration_step:N_iterations
         if mpi_cache.rank == 0
             global a = time()
         end
-        ComputeGradient!(optimizer)
+        TensorComputeGradient!(optimizer)
+        #ComputeGradient!(optimizer)
         #ComputeGradient!(optimizer, basis)
         if mpi_cache.rank == 0
             global b = time()

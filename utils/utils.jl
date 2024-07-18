@@ -1,11 +1,8 @@
-export make_density_matrix, adaptive_step_size, make_one_body_Lindbladian
-export ⊗, id, sx, sy, sz, sp, sm, generate_bit_basis
-#export dINDEX
+export make_one_body_Lindbladian, ⊗, id, sx, sy, sz, sp, sm, generate_bit_basis
 
 
 #Basis type alias:
 Basis = Vector{Vector{Bool}}
-
 
 ⊗(x,y) = kron(x,y)
 
@@ -33,60 +30,12 @@ end
 dVEC =   Dict((0,0) => [1,0,0,0], (0,1) => [0,1,0,0], (1,0) => [0,0,1,0], (1,1) => [0,0,0,1])
 dVEC_transpose::Dict{Tuple{Bool,Bool},Matrix} = Dict((0,0) => [1 0 0 0], (0,1) => [0 1 0 0], (1,0) => [0 0 1 0], (1,1) => [0 0 0 1])
 dUNVEC = Dict([1,0,0,0] => (0,0), [0,1,0,0] => (0,1), [0,0,1,0] => (1,0), [0,0,0,1] => (1,1))
-TPSC::Vector{Tuple{Bool,Bool}} = [(0,0),(0,1),(1,0),(1,1)]
-
+TLS_Liouville_Space::Vector{Tuple{Bool,Bool}} = [(0,0),(0,1),(1,0),(1,1)]
 dINDEX2 = Dict(1 => 1, 0 => 2)
-TPSC2 = [false,true]
 dVEC2 = Dict(0 => [1,0], 1 => [0,1])
 
 function flatten_index(i,j,s,p::Parameters)
     return i+p.χ*(j-1)+p.χ^2*(s-1)
-end
-
-function draw2(n)
-    a = rand(1:n)
-    b = rand(1:n)
-    while b==a
-        b = rand(1:n)
-    end
-    return a, b
-end
-
-function draw3(n)
-    a = rand(1:n)
-    b = rand(1:n)
-    c = rand(1:n)
-    while b==a
-        b = rand(1:n)
-    end
-    while c==a && c==b
-        c = rand(1:n)
-    end
-    return a, b, c
-end
-
-function adaptive_step_size(δ, current_L, previous_L)
-    if current_L>previous_L
-        δ=0.95*δ
-    else 
-        δ=1.02*δ
-    end
-    return δ
-end
-
-function make_density_matrix(params, A, basis)
-    ρ = zeros(ComplexF64, params.dim_H, params.dim_H)
-    k=0
-    for ket in basis
-        k+=1
-        b=0
-        for bra in basis
-            b+=1
-            sample = Projector(ket,bra)
-            ρ[k,b] = MPO(params, sample, A)
-        end
-    end
-    return ρ
 end
 
 function make_one_body_Lindbladian(H, Γ)
@@ -116,24 +65,3 @@ function generate_bit_basis(N)#(N::UInt16)
     end
     return Vector{Vector{Bool}}(set)
 end
-
-
-
-
-#Generate open-boundary-conditions MPO:
-"""
-A_init = zeros(ComplexF64, N,χ,χ,4)
-v1 = [0.95,0.1,0.1,0.05]
-for i in 1:χ
-    A_init[1,1,i,:]=v1
-    A_init[N,i,1,:]=v1
-    for n in 2:N-1
-        for j in 1:χ
-            A_init[n,j,i,:]=v1
-        end
-    end
-end
-A = deepcopy(A_init)
-mpo = MPO(A)
-"""
-

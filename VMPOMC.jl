@@ -17,15 +17,19 @@ include("utils/parameters.jl")
 include("utils/workspace.jl")
 include("utils/utils.jl")
 include("utils/mpi.jl")
+include("utils/ED_Ising.jl")
 
  
 #MPS/MPO backend:
 include("MPO/MPO.jl")
+include("MPO/TI_MPO.jl")
+include("MPO/NTI_MPO.jl")
+#include("MPO/PUC_MPO.jl")
 include("MPO/observables.jl")
 
 
 #Monte Carlo samplers:
-include("Samplers/Metropolis.jl")
+include("Samplers/MetropolisSampler.jl")
 
 
 #Optimizers:
@@ -34,7 +38,12 @@ include("Optimisers/optimizer.jl")
 
 
 #Optimizer routines:
-include("Optimisers/MPO/TDVP_Metropolis.jl")
-include("Optimisers/MPO/TDVP.jl")
+
+include("Optimisers/MPO/StochasticTDVP.jl")
+#include("Optimisers/MPO/ExactTDVP.jl")
+
+include("Samplers/TI_Metropolis.jl")
+include("Samplers/NTI_Metropolis.jl")
+#include("Samplers/PUC_Metropolis.jl")
 
 end

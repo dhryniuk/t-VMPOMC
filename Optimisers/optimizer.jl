@@ -44,7 +44,7 @@ mutable struct TDVPl1{T<:Complex{<:AbstractFloat}} <: TDVP{T}
     sampler::MetropolisSampler
 
     #Optimizer:
-    optimizer_cache::TDVPCache{T}#Union{ExactCache{T},Nothing}
+    optimizer_cache::TDVPCache{T}
 
     #1-local Lindbladian:
     list_l1::Vector{Matrix{T}}
@@ -58,7 +58,7 @@ mutable struct TDVPl1{T<:Complex{<:AbstractFloat}} <: TDVP{T}
     ϵ::Float64
 
     #Workspace:
-    workspace::Workspace{T}#Union{workspace,Nothing}
+    workspace::Workspace{T}
 
 end
 
@@ -139,6 +139,78 @@ function TDVP(sampler::MetropolisSampler, mpo::TI_MPO{T}, l1::Matrix{T}, ϵ::Flo
         optimizer = TI_TDVPl1(mpo, sampler, TI_TDVPCache(mpo.A, params), l1, Ising(), LocalDephasing(), params, ϵ, set_workspace(mpo.A, params))
     elseif ising_int=="LRIsing"
         optimizer = TI_TDVPl1(mpo, sampler, TI_TDVPCache(mpo.A, params), l1, LongRangeIsing(params), LocalDephasing(), params, ϵ, set_workspace(mpo.A, params))
+    else
+        error("Unrecognized Ising interaction")
+    end
+    return optimizer
+end
+
+
+abstract type ExactTDVP{T} <: Optimizer{T} end
+
+mutable struct TI_ExactTDVPCache{T} <: OptimizerCache
+    #Ensemble averages:
+    L∂L::Array{T,3}
+    ΔLL::Array{T,3}
+
+    Z::Float64
+
+    #Sums:
+    mlL::T
+
+    #Gradient:
+    ∇::Array{T,3}
+
+    # Metric tensor:
+    S::Array{T,2}
+    avg_G::Array{T}
+end
+
+function TI_ExactTDVPCache(A::Array{T,3},params::Parameters) where {T<:Complex{<:AbstractFloat}} 
+    cache=TI_ExactTDVPCache(
+        zeros(T, params.χ, params.χ, 4),
+        zeros(T, params.χ, params.χ, 4),
+        0.0,
+        convert(T,0),
+        zeros(T,params.χ,params.χ,4),
+        zeros(T,4*params.χ^2,4*params.χ^2),
+        zeros(T,4*params.χ^2)
+    )  
+    return cache
+end
+
+mutable struct TI_ExactTDVPl1{T<:Complex{<:AbstractFloat}} <: ExactTDVP{T}
+
+    #MPO:
+    mpo::TI_MPO{T}
+
+    #Basis:
+    basis::Basis
+
+    #Optimizer:
+    optimizer_cache::TI_ExactTDVPCache{T}
+
+    #1-local Lindbladian:
+    l1::Matrix{T}
+
+    #Diagonal operators:
+    ising_op::IsingInteraction
+    dephasing_op::Dephasing
+
+    #Parameters:
+    params::Parameters
+    ϵ::Float64
+
+    #Workspace:
+    workspace::Workspace{T}
+
+end
+
+function TDVP(basis::Basis, mpo::TI_MPO{T}, l1::Matrix{T}, ϵ::Float64, params::Parameters, ising_int::String) where {T<:Complex{<:AbstractFloat}} 
+    if ising_int=="Ising" 
+        optimizer = TI_ExactTDVPl1(mpo, basis, TI_ExactTDVPCache(mpo.A, params), l1, Ising(), LocalDephasing(), params, ϵ, set_workspace(mpo.A, params))
+    elseif ising_int=="LRIsing"
+        optimizer = TI_ExactTDVPl1(mpo, basis, TI_ExactTDVPCache(mpo.A, params), l1, LongRangeIsing(params), LocalDephasing(), params, ϵ, set_workspace(mpo.A, params))
     else
         error("Unrecognized Ising interaction")
     end

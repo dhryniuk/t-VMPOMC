@@ -1,4 +1,4 @@
-export MetropolisSampler, Mono_Metropolis_sweep_left, MPO_Metropolis_burn_in
+export MetropolisSampler, Metropolis_sweep_left, MPO_Metropolis_burn_in
 
 function draw_excluded(u::Int8)
     v::Int8 = rand(1:3)
