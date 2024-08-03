@@ -146,6 +146,79 @@ function TDVP(sampler::MetropolisSampler, mpo::TI_MPO{T}, l1::Matrix{T}, ϵ::Flo
 end
 
 
+
+mutable struct PTI_TDVPCache{T} <: OptimizerCache
+    #Ensemble averages:
+    L∂L::Array{T,4}
+    ΔLL::Array{T,4}
+
+    #Sums:
+    mlL::T
+    acceptance::Float64#UInt64
+
+    #Gradient:
+    ∇::Array{T,4}
+
+    # Metric tensor:
+    S::Array{T,2}
+    avg_G::Array{T}
+end
+
+function PTI_TDVPCache(A::Array{T,4},params::Parameters) where {T<:Complex{<:AbstractFloat}} 
+    cache=PTI_TDVPCache(
+        zeros(T, params.uc_size, params.χ, params.χ, 4),
+        zeros(T, params.uc_size, params.χ, params.χ, 4),
+        convert(T, 0),
+        0.0,
+        zeros(T, params.uc_size, params.χ, params.χ, 4),
+        zeros(T, 4*params.χ^2*params.uc_size, 4*params.χ^2*params.uc_size),
+        zeros(T, 4*params.χ^2*params.uc_size)
+    )  
+    return cache
+end
+
+mutable struct PTI_TDVPl1{T<:Complex{<:AbstractFloat}} <: TDVP{T}
+
+    #MPO:
+    #A::Array{T,3}
+    mpo::PTI_MPO{T}
+
+    #Sampler:
+    sampler::MetropolisSampler
+
+    #Optimizer:
+    optimizer_cache::PTI_TDVPCache{T}#Union{ExactCache{T},Nothing}
+
+    #1-local Lindbladian:
+    l1::Matrix{T}
+
+    #Diagonal operators:
+    ising_op::IsingInteraction
+    dephasing_op::Dephasing
+
+    #Parameters:
+    params::Parameters
+    ϵ::Float64
+
+    #Workspace:
+    workspace::Workspace{T}#Union{workspace,Nothing}
+
+end
+
+export PTI_TDVP
+
+function PTI_TDVP(sampler::MetropolisSampler, mpo::PTI_MPO{T}, l1::Matrix{T}, ϵ::Float64, params::Parameters, ising_int::String) where {T<:Complex{<:AbstractFloat}} 
+    if ising_int=="Ising" 
+        optimizer = PTI_TDVPl1(mpo, sampler, PTI_TDVPCache(mpo.A, params), l1, Ising(), LocalDephasing(), params, ϵ, set_workspace(mpo.A, params))
+    elseif ising_int=="LRIsing"
+        optimizer = PTI_TDVPl1(mpo, sampler, PTI_TDVPCache(mpo.A, params), l1, LongRangeIsing(params), LocalDephasing(), params, ϵ, set_workspace(mpo.A, params))
+    else
+        error("Unrecognized Ising interaction")
+    end
+    return optimizer
+end
+
+
 abstract type ExactTDVP{T} <: Optimizer{T} end
 
 mutable struct TI_ExactTDVPCache{T} <: OptimizerCache

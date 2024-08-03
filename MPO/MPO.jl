@@ -1,6 +1,6 @@
 export normalize_MPO!
 
-export TI_MPO, MPO
+export TI_MPO, MPO, PTI_MPO
 
 abstract type MatrixProductOperator{T<:Complex{<:AbstractFloat}} end
 
@@ -12,9 +12,9 @@ mutable struct MPO{T} <: MatrixProductOperator{T}
     A::Array{T,4}
 end
 
-mutable struct PUC_MPO{T} <: MatrixProductOperator{T}
+mutable struct PTI_MPO{T} <: MatrixProductOperator{T}
     A::Array{T,4}
-    uc_size::Int64
+    #uc_size::Int64
 end
 
 function Base.similar(mpo::TI_MPO)
@@ -27,6 +27,10 @@ end
 
 function Base.copy(mpo::TI_MPO)
     return TI_MPO(deepcopy(mpo.A))
+end
+
+function Base.copy(mpo::PTI_MPO)
+    return PTI_MPO(deepcopy(mpo.A))
 end
 
 function Base.copy(mpo::MPO)

@@ -79,6 +79,25 @@ function tensor_calculate_z_magnetization(params::Parameters, A::Array{ComplexF6
     return @tensor C[a,a]
 end
 
+"""
+export tensor_calculate_staggered_magnetization
+
+function tensor_calculate_staggered_magnetization(params::Parameters, A::Array{ComplexF64,4}, op::Array{ComplexF64})
+    B=zeros(ComplexF64,params.χ,params.χ)
+    @tensor B[a,b] := A[a,b,c,d]*op[c,d]
+    C=deepcopy(B)
+    Mz_stag = 0
+    for i in 1:params.N-1
+        C[a,b] := C[a,c]*A[c,b,e,f]*op[e,f]*(-1)^i
+        Mz_stag += @tensor C[a,a]
+        @tensor B[a,b] := B[a,c]*A[c,b,e,e]
+        C=deepcopy(B)
+    end
+    Mz_stag += @tensor A[a,a,c,d]*op[c,e]*op[e,d]
+    return Mz_stag
+end
+"""
+
 export tensor_calculate_magnetization
 
 function tensor_calculate_magnetization(params::Parameters, A::Array{ComplexF64,4}, op::Array{ComplexF64})

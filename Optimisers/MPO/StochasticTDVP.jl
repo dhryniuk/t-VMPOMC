@@ -5,6 +5,11 @@ function initialize!(optimizer::TDVPl1{T}) where {T<:Complex{<:AbstractFloat}}
     optimizer.workspace = set_workspace(optimizer.mpo.A, optimizer.params)
 end
 
+function initialize!(optimizer::PTI_TDVPl1{T}) where {T<:Complex{<:AbstractFloat}}
+    optimizer.optimizer_cache = PTI_TDVPCache(optimizer.mpo.A, optimizer.params)
+    optimizer.workspace = set_workspace(optimizer.mpo.A, optimizer.params)
+end
+
 function TDVP_one_body_Lindblad_term!(local_L::T, sample::Projector, j::UInt16, optimizer::TDVPl1{T}) where {T<:Complex{<:AbstractFloat}} 
     l1 = optimizer.list_l1[j]
     A = optimizer.mpo.A
@@ -44,6 +49,20 @@ function normalize_MPO!(params::Parameters, optimizer::TI_TDVPl1{T}) where {T<:C
     A = optimizer.mpo.A
     _MPO=(A[:,:,1]+A[:,:,4])^params.N
     A./=tr(_MPO)^(1/params.N)
+    optimizer.mpo.A = A
+end
+
+function normalize_MPO!(params::Parameters, optimizer::PTI_TDVPl1{T}) where {T<:Complex{<:AbstractFloat}} 
+    A = optimizer.mpo.A
+    cache = optimizer.workspace
+    
+    _MPO = cache.ID
+    for i in 1:params.N
+        n = mod1(i,params.uc_size)
+        _MPO*=(A[n,:,:,1]+A[n,:,:,4])
+    end
+    trMPO = tr(_MPO)^(1/params.N)
+    A./=trMPO
     optimizer.mpo.A = A
 end
 
@@ -232,6 +251,20 @@ function update_SR!(optimizer::TI_TDVPl1{T}) where {T<:Complex{<:AbstractFloat}}
     #S.+=workspace.plus_S ###SLOWEST PART BY FAR
 end
 
+function update_SR!(optimizer::PTI_TDVPl1{T}) where {T<:Complex{<:AbstractFloat}}
+    S::Array{T,2} = optimizer.optimizer_cache.S
+    avg_G::Vector{T} = optimizer.optimizer_cache.avg_G
+    params::Parameters = optimizer.params
+    ws = optimizer.workspace
+    
+    G::Vector{T} = reshape(ws.Δ,params.uc_size*4*params.χ^2)
+    conj_G = conj(G)
+    avg_G .+= G
+    mul!(ws.plus_S,conj_G,transpose(G))
+    S .+= ws.plus_S 
+end
+
+
 
 function reconfigure!(optimizer::TI_TDVPl1{T}) where {T<:Complex{<:AbstractFloat}} #... the gradient tensor
     data = optimizer.optimizer_cache
@@ -287,6 +320,32 @@ function reconfigure!(optimizer::TI_TDVPl1{T}) where {T<:Complex{<:AbstractFloat
     data.∇ = reshape(flat_grad, params.χ, params.χ, 4)
 end
 """
+
+function reconfigure!(optimizer::PTI_TDVPl1{T}) where {T<:Complex{<:AbstractFloat}} #... the gradient tensor
+    data = optimizer.optimizer_cache
+    N_MC = optimizer.sampler.N_MC
+    ϵ = optimizer.ϵ
+    params = optimizer.params
+
+    #Compute metric tensor:
+    data.S./=N_MC
+    data.avg_G./=N_MC
+    conj_avg_G = conj(data.avg_G)
+    data.S-=data.avg_G*transpose(conj_avg_G)  ### WARNING: MAY NOT BE CORRECT !!!
+
+    #Regularize the metric tensor:
+    data.S+=ϵ*Matrix{Int}(I, size(data.S))
+
+    #Reconfigure gradient:
+    grad = (data.L∂L-data.ΔLL)/N_MC
+    flat_grad = reshape(grad,prod(size(grad)))
+    flat_grad = inv(data.S)*flat_grad
+
+    ### NEED TO CONVERT ARRAY INTO VECTOR(ARRAY)
+
+    data.∇ = reshape(flat_grad,size(data.∇))
+end
+
 function finalize!(optimizer::TDVP{T}) where {T<:Complex{<:AbstractFloat}}
     N_MC = optimizer.sampler.N_MC
     data = optimizer.optimizer_cache
@@ -332,20 +391,6 @@ function optimize!(optimizer::TDVP{T}, δ::Float64) where {T<:Complex{<:Abstract
     normalize_MPO!(optimizer.params, optimizer)
 end
 
-function optimize_no_normalize!(optimizer::TDVP{T}, δ::Float64) where {T<:Complex{<:AbstractFloat}}
-    A = optimizer.mpo.A
-
-    finalize!(optimizer)
-    reconfigure!(optimizer)
-
-    ∇  = optimizer.optimizer_cache.∇
-
-    new_A = similar(A)
-    new_A = A + δ*∇
-    A = new_A
-    optimizer.mpo.A = A
-end
-
 function MPI_mean!(optimizer::TDVP{T}, mpi_cache) where {T<:Complex{<:AbstractFloat}}
     par_cache = optimizer.optimizer_cache
 
@@ -389,6 +434,28 @@ function tensor_sweep_Lindblad!(sample::Projector, ρ_sample::T, optimizer::TDVP
 
     return temp_local_L
 end
+
+function tensor_sweep_Lindblad!(sample::Projector, ρ_sample::T, optimizer::PTI_TDVPl1{T}) where {T<:Complex{<:AbstractFloat}} 
+    params = optimizer.params
+    cache = optimizer.workspace
+    liouvillian = optimizer.l1
+
+    reduced_density_matrix::PTI_MPO{T} = copy(optimizer.mpo)
+    @tensor reduced_density_matrix.A[n,a,b,c] := liouvillian[c,d]*reduced_density_matrix.A[n,a,b,d]
+
+    temp_local_L::T = 0
+    for j::UInt16 in 1:params.N
+        n = mod1(j, params.uc_size)
+        mul!(cache.loc_1, cache.L_set[j], @view(reduced_density_matrix.A[n,:,:,dINDEX[(sample.ket[j],sample.bra[j])]]))
+        mul!(cache.loc_2, cache.loc_1, cache.R_set[(params.N+1-j)])
+        temp_local_L += tr(cache.loc_2)
+    end
+    temp_local_L /= ρ_sample
+
+    return temp_local_L
+end
+
+
 
 function tensor_update!(optimizer::TDVP{T}, sample::Projector, interaction_energy) where {T<:Complex{<:AbstractFloat}} #... the ensemble averages etc.
     params=optimizer.params

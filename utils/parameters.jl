@@ -14,6 +14,7 @@ mutable struct Parameters
     γ::Float32
     γ_d::Float32
     α::Float64
+    uc_size::Int64
 end
 
 Base.display(params::Parameters) = begin
@@ -30,10 +31,11 @@ Base.display(params::Parameters) = begin
     println("γ_l\t\t", params.γ)
     println("γ_d\t\t", params.γ_d)
     println("α\t\t", params.α)
+    println("uc_size\t\t", params.uc_size)
 end
 
 #write a constructor that defaults to 0 whenever some parameter is not specified...
 
-function Parameters(N,χ,Jx,Jy,J,hx,hz,γ,γ_d,α)
-    return Parameters(N,2^N,2^(2*N),χ,Jx,Jy,J,hx,hz,γ,γ_d,α)
+function Parameters(N,χ,Jx,Jy,J,hx,hz,γ,γ_d,α,uc_size)
+    return Parameters(N,2^N,2^(2*N),χ,Jx,Jy,J,hx,hz,γ,γ_d,α,uc_size)
 end

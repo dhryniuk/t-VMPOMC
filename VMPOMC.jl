@@ -24,7 +24,7 @@ include("utils/ED_Ising.jl")
 include("MPO/MPO.jl")
 include("MPO/TI_MPO.jl")
 include("MPO/NTI_MPO.jl")
-#include("MPO/PUC_MPO.jl")
+include("MPO/PTI_MPO.jl")
 include("MPO/observables.jl")
 
 
@@ -44,6 +44,6 @@ include("Optimisers/MPO/StochasticTDVP.jl")
 
 include("Samplers/TI_Metropolis.jl")
 include("Samplers/NTI_Metropolis.jl")
-#include("Samplers/PUC_Metropolis.jl")
+include("Samplers/PTI_Metropolis.jl")
 
 end
