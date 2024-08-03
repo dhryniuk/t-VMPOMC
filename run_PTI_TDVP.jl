@@ -33,7 +33,7 @@ N = parse(Int64,ARGS[1])
 const γ_d = 0
 hx = parse(Float64,ARGS[2])
 χ = parse(Int64,ARGS[3])
-uc_size = 2
+uc_size = 1
 
 
 params = Parameters(N,χ,Jx,Jy,J,hx,hz,γ,γ_d,α, uc_size)
@@ -43,7 +43,7 @@ const l1 = make_one_body_Lindbladian(hx*sx+hz*sz,sqrt(γ)*sm)
 
 display(l1)
 
-N_MC::Int64 = 1000#10*4*χ^2
+N_MC::Int64 = 10000#10*4*χ^2
 δ::Float64 = 0.01
 F::Float64 = 1.0#0.9999
 ϵ::Float64 = parse(Float64,ARGS[4])
@@ -123,16 +123,9 @@ optimizer = PTI_TDVP(sampler, mpo, l1, ϵ, params, "Ising")
 if mpi_cache.rank == 0
     global t0 = time()
 
-    Af = reshape(optimizer.mpo.A,χ,χ,2,2) 
-    Af_dagger = conj.(permutedims(Af,[1,2,4,3]))
-
-    mx = real(tensor_calculate_magnetization(params,Af,sx))
-    my = real(tensor_calculate_magnetization(params,Af,sy))
-    mz = real(tensor_calculate_magnetization(params,Af,sz))
-
-    sxx = real( tensor_calculate_correlation(params,Af,sx))
-    syy = real( tensor_calculate_correlation(params,Af,sy))
-    szz = real( tensor_calculate_correlation(params,Af,sz))
+    mx = tensor_calculate_magnetization(1,params,mpo,sx)
+    my = tensor_calculate_magnetization(1,params,mpo,sy)
+    mz = tensor_calculate_magnetization(1,params,mpo,sz)
 
     list_of_C = open("list_of_C_chi$(χ)_N$(N)_hx$(hx)_γd$(γ_d).data", "a")
     println(list_of_C, real(optimizer.optimizer_cache.mlL)/N)
@@ -140,13 +133,10 @@ if mpi_cache.rank == 0
     list_of_mag = open("list_of_mag_chi$(χ)_N$(N)_hx$(hx)_γd$(γ_d).data", "a")
     println(list_of_mag, mx, ",", my, ",", mz)
     close(list_of_mag)
-    list_of_P = open("list_of_P_chi$(χ)_N$(N)_hx$(hx)_γd$(γ_d).data", "a")
-    P = real(tensor_purity(params, optimizer.mpo.A))
-    println(list_of_P, P)
-    close(list_of_P)
-    list_of_cor = open("list_of_cor_chi$(χ)_N$(N)_hx$(hx)_γd$(γ_d).data", "a")
-    println(list_of_cor, sxx, ",", syy, ",", szz)
-    close(list_of_cor)
+    #list_of_P = open("list_of_P_chi$(χ)_N$(N)_hx$(hx)_γd$(γ_d).data", "a")
+    #P = real(tensor_purity(params, optimizer.mpo.A))
+    #println(list_of_P, P)
+    #close(list_of_P)
 end
 for k in last_iteration_step:N_iterations
     for i in 1:1
@@ -174,16 +164,10 @@ for k in last_iteration_step:N_iterations
 
     #Record observables:
     if mpi_cache.rank == 0
-        Af = reshape(optimizer.mpo.A,χ,χ,2,2) 
-        Af_dagger = conj.(permutedims(Af,[1,2,4,3]))
 
-        mx = real(tensor_calculate_magnetization(params,Af,sx))
-        my = real(tensor_calculate_magnetization(params,Af,sy))
-        mz = real(tensor_calculate_magnetization(params,Af,sz))
-
-        sxx = real( tensor_calculate_correlation(params,Af,sx))
-        syy = real( tensor_calculate_correlation(params,Af,sy))
-        szz = real( tensor_calculate_correlation(params,Af,sz))
+        mx = tensor_calculate_magnetization(1,params,mpo,sx)
+        my = tensor_calculate_magnetization(1,params,mpo,sy)
+        mz = tensor_calculate_magnetization(1,params,mpo,sz)
 
         o = open("mem.out", "a")
         println(o, "k=$k: ", Base.Sys.free_memory())
@@ -207,15 +191,12 @@ for k in last_iteration_step:N_iterations
         list_of_mag = open("list_of_mag_chi$(χ)_N$(N)_hx$(hx)_γd$(γ_d).data", "a")
         println(list_of_mag, mx, ",", my, ",", mz)
         close(list_of_mag)
-        list_of_P = open("list_of_P_chi$(χ)_N$(N)_hx$(hx)_γd$(γ_d).data", "a")
-        P = real(tensor_purity(params, optimizer.mpo.A))
-        println(list_of_P, P)
-        close(list_of_P)
-        list_of_cor = open("list_of_cor_chi$(χ)_N$(N)_hx$(hx)_γd$(γ_d).data", "a")
-        println(list_of_cor, sxx, ",", syy, ",", szz)
-        close(list_of_cor)
+        #list_of_P = open("list_of_P_chi$(χ)_N$(N)_hx$(hx)_γd$(γ_d).data", "a")
+        #P = real(tensor_purity(params, optimizer.mpo.A))
+        #println(list_of_P, P)
+        #close(list_of_P)
 
-        save("MPO_density_matrix_chi$(χ)_N$(N)_hx$(hx)_γd$(γ_d).jld", "MPO_density_matrix", Af)
+        #save("MPO_density_matrix_chi$(χ)_N$(N)_hx$(hx)_γd$(γ_d).jld", "MPO_density_matrix", Af)
         #sleep(1)
         #save("MPO_density_matrix_chi$(χ)_N$(N)_hx$(hx)_γd$(γ_d)_backup.jld", "MPO_density_matrix", Af)
         global f = time()

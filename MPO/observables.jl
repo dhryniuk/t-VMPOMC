@@ -39,46 +39,6 @@ function apply_operator_to_MPO!(params::Parameters, mpo::MPO{ComplexF64}, op::Ar
     mpo.A=reshape(A,params.N,params.χ,params.χ,4)
 end
 
-function calculate_x_magnetization(params::Parameters, A::Array{ComplexF64})
-    mp=Matrix{Int}(I, params.χ, params.χ)
-    for i in 1:params.N-1
-        mp*=A[:,:,dINDEX[(1,1)]]+A[:,:,dINDEX[(0,0)]]
-    end
-    mp*=A[:,:,dINDEX[(1,0)]]+A[:,:,dINDEX[(0,1)]]
-    return tr(mp)
-end
-
-function calculate_y_magnetization(params::Parameters, A::Array{ComplexF64})
-    mp=Matrix{Int}(I, params.χ, params.χ)
-    for i in 1:params.N-1
-        mp*=A[:,:,dINDEX[(1,1)]]+A[:,:,dINDEX[(0,0)]]
-    end
-    mp*=(A[:,:,dINDEX[(1,0)]]-A[:,:,dINDEX[(0,1)]])*1im
-    return -tr(mp)
-end
-
-function calculate_z_magnetization(params::Parameters, A::Array{ComplexF64})
-    mp=Matrix{Int}(I, params.χ, params.χ)
-    for i in 1:params.N-1
-        mp*=A[:,:,dINDEX[(1,1)]]+A[:,:,dINDEX[(0,0)]]
-    end
-    mp*=-A[:,:,dINDEX[(1,1)]]+A[:,:,dINDEX[(0,0)]]
-    return tr(mp)
-end
-
-function tensor_calculate_z_magnetization(params::Parameters, A::Array{ComplexF64})
-    A=reshape(A,params.χ,params.χ,2,2)
-    B=zeros(ComplexF64,params.χ,params.χ)
-    D=zeros(ComplexF64,params.χ,params.χ)
-    @tensor B[a,b]=A[a,b,c,d]*sz[c,d]
-    C=deepcopy(B)
-    for _ in 1:params.N-1
-        @tensor D[a,b] = C[a,c]*A[c,b,e,e]
-        C=deepcopy(D)
-    end
-    return @tensor C[a,a]
-end
-
 """
 export tensor_calculate_staggered_magnetization
 
@@ -99,6 +59,22 @@ end
 """
 
 export tensor_calculate_magnetization
+
+function tensor_calculate_magnetization(site, params::Parameters, mpo::PTI_MPO{ComplexF64}, op::Array{ComplexF64})
+    A = mpo.A
+    B = zeros(ComplexF64,params.χ,params.χ)
+    B += diagm(ones(params.χ))
+    for i in 1:params.N
+        n = mod1(i, params.uc_size)
+        A_reshaped = reshape(A[n,:,:,:],params.χ,params.χ,2,2)
+        if i==site
+            @tensor B[a,b] := B[a,e]*A_reshaped[e,b,c,d]*op[c,d]
+        else
+            @tensor B[a,b] := B[a,e]*A_reshaped[e,b,c,c]
+        end
+    end
+    return @tensor B[a,a]
+end
 
 function tensor_calculate_magnetization(params::Parameters, A::Array{ComplexF64,4}, op::Array{ComplexF64})
     #A=reshape(A,params.χ,params.χ,2,2)
