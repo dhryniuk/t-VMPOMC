@@ -22,9 +22,6 @@ include("utils/ED_Ising.jl")
  
 #MPS/MPO backend:
 include("MPO/MPO.jl")
-include("MPO/TI_MPO.jl")
-include("MPO/NTI_MPO.jl")
-include("MPO/PTI_MPO.jl")
 include("MPO/observables.jl")
 
 
@@ -41,9 +38,9 @@ include("Optimisers/optimizer.jl")
 
 include("Optimisers/MPO/StochasticTDVP.jl")
 #include("Optimisers/MPO/ExactTDVP.jl")
+include("Optimisers/MPO/Ising_interactions.jl")
 
-include("Samplers/TI_Metropolis.jl")
-include("Samplers/NTI_Metropolis.jl")
-include("Samplers/PTI_Metropolis.jl")
+
+include("Samplers/MPO_Metropolis.jl")
 
 end

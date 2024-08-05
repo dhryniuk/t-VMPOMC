@@ -11,6 +11,7 @@ mutable struct TDVPCache{T} <: OptimizerCache
 
     #Sums:
     mlL::T
+    mlL2::T
     acceptance::Float64#UInt64
 
     #Gradient:
@@ -23,13 +24,14 @@ end
 
 function TDVPCache(A::Array{T,4},params::Parameters) where {T<:Complex{<:AbstractFloat}} 
     cache=TDVPCache(
-        zeros(T, params.N, params.χ, params.χ, 4),
-        zeros(T, params.N, params.χ, params.χ, 4),
-        convert(T,0),
+        zeros(T, params.uc_size, params.χ, params.χ, 4),
+        zeros(T, params.uc_size, params.χ, params.χ, 4),
+        convert(T, 0),
+        convert(T, 0),
         0.0,
-        zeros(T,params.N,params.χ,params.χ,4),
-        zeros(T,4*params.χ^2*params.N,4*params.χ^2*params.N),
-        zeros(T,4*params.χ^2*params.N)
+        zeros(T, params.uc_size, params.χ, params.χ, 4),
+        zeros(T, 4*params.χ^2*params.uc_size, 4*params.χ^2*params.uc_size),
+        zeros(T, 4*params.χ^2*params.uc_size)
     )  
     return cache
 end
@@ -44,10 +46,10 @@ mutable struct TDVPl1{T<:Complex{<:AbstractFloat}} <: TDVP{T}
     sampler::MetropolisSampler
 
     #Optimizer:
-    optimizer_cache::TDVPCache{T}
+    optimizer_cache::TDVPCache{T}#Union{ExactCache{T},Nothing}
 
     #1-local Lindbladian:
-    list_l1::Vector{Matrix{T}}
+    l1::Matrix{T}
 
     #Diagonal operators:
     ising_op::IsingInteraction
@@ -58,68 +60,42 @@ mutable struct TDVPl1{T<:Complex{<:AbstractFloat}} <: TDVP{T}
     ϵ::Float64
 
     #Workspace:
-    workspace::Workspace{T}
+    workspace::Workspace{T}#Union{workspace,Nothing}
 
 end
 
-function TDVP(sampler::MetropolisSampler, mpo::MPO{T}, list_l1::Vector{Matrix{T}}, ϵ::Float64, params::Parameters, ising_int::String) where {T<:Complex{<:AbstractFloat}}
+export TDVP
+
+function TDVP(sampler::MetropolisSampler, mpo::MPO{T}, l1::Matrix{T}, ϵ::Float64, params::Parameters, ising_int::String) where {T<:Complex{<:AbstractFloat}} 
     if ising_int=="Ising" 
-        optimizer = TDVPl1(mpo, sampler, TDVPCache(mpo.A, params), list_l1, Ising(), LocalDephasing(), params, ϵ, set_workspace(mpo.A, params))
+        optimizer = TDVPl1(mpo, sampler, TDVPCache(mpo.A, params), l1, Ising(), LocalDephasing(), params, ϵ, set_workspace(mpo.A, params))
+    elseif ising_int=="LRIsing"
+        optimizer = TDVPl1(mpo, sampler, TDVPCache(mpo.A, params), l1, LongRangeIsing(params), LocalDephasing(), params, ϵ, set_workspace(mpo.A, params))
     elseif ising_int=="SquareIsing"
-        optimizer = TDVPl1(mpo, sampler, TDVPCache(mpo.A, params), list_l1, SquareIsing(), LocalDephasing(), params, ϵ, set_workspace(mpo.A, params))
+        optimizer = TDVPl1(mpo, sampler, TDVPCache(mpo.A, params), l1, SquareIsing(), LocalDephasing(), params, ϵ, set_workspace(mpo.A, params))
     elseif ising_int=="TriangularIsing"
-        optimizer = TDVPl1(mpo, sampler, TDVPCache(mpo.A, params), list_l1, TriangularIsing(), LocalDephasing(), params, ϵ, set_workspace(mpo.A, params))
+        optimizer = TDVPl1(mpo, sampler, TDVPCache(mpo.A, params), l1, TriangularIsing(), LocalDephasing(), params, ϵ, set_workspace(mpo.A, params))
     else
         error("Unrecognized Ising interaction")
     end
     return optimizer
 end
 
-
-mutable struct TI_TDVPCache{T} <: OptimizerCache
-    #Ensemble averages:
-    L∂L::Array{T,3}
-    ΔLL::Array{T,3}
-
-    #Sums:
-    mlL::T
-    acceptance::Float64#UInt64
-
-    #Gradient:
-    ∇::Array{T,3}
-
-    # Metric tensor:
-    S::Array{T,2}
-    avg_G::Array{T}
-end
-
-function TI_TDVPCache(A::Array{T,3},params::Parameters) where {T<:Complex{<:AbstractFloat}} 
-    cache=TI_TDVPCache(
-        zeros(T,params.χ,params.χ,4),
-        zeros(T,params.χ,params.χ,4),
-        convert(T,0),
-        0.0,#convert(UInt64,0),
-        zeros(T,params.χ,params.χ,4),
-        zeros(T,4*params.χ^2,4*params.χ^2),
-        zeros(T,4*params.χ^2)
-    )  
-    return cache
-end
-
-mutable struct TI_TDVPl1{T<:Complex{<:AbstractFloat}} <: TDVP{T}
+mutable struct TDVPl2{T<:Complex{<:AbstractFloat}} <: TDVP{T}
 
     #MPO:
     #A::Array{T,3}
-    mpo::TI_MPO{T}
+    mpo::MPO{T}
 
     #Sampler:
     sampler::MetropolisSampler
 
     #Optimizer:
-    optimizer_cache::TI_TDVPCache{T}#Union{ExactCache{T},Nothing}
+    optimizer_cache::TDVPCache{T}#Union{ExactCache{T},Nothing}
 
     #1-local Lindbladian:
     l1::Matrix{T}
+    l2::Array{T}
 
     #Diagonal operators:
     ising_op::IsingInteraction
@@ -134,11 +110,11 @@ mutable struct TI_TDVPl1{T<:Complex{<:AbstractFloat}} <: TDVP{T}
 
 end
 
-function TDVP(sampler::MetropolisSampler, mpo::TI_MPO{T}, l1::Matrix{T}, ϵ::Float64, params::Parameters, ising_int::String) where {T<:Complex{<:AbstractFloat}} 
+export TDVP
+
+function TDVP(sampler::MetropolisSampler, mpo::MPO{T}, l1::Matrix{T}, l2::Array{T}, ϵ::Float64, params::Parameters, ising_int::String) where {T<:Complex{<:AbstractFloat}} 
     if ising_int=="Ising" 
-        optimizer = TI_TDVPl1(mpo, sampler, TI_TDVPCache(mpo.A, params), l1, Ising(), LocalDephasing(), params, ϵ, set_workspace(mpo.A, params))
-    elseif ising_int=="LRIsing"
-        optimizer = TI_TDVPl1(mpo, sampler, TI_TDVPCache(mpo.A, params), l1, LongRangeIsing(params), LocalDephasing(), params, ϵ, set_workspace(mpo.A, params))
+        optimizer = TDVPl2(mpo, sampler, TDVPCache(mpo.A, params), l1, l2, Ising(), LocalDephasing(), params, ϵ, set_workspace(mpo.A, params))
     else
         error("Unrecognized Ising interaction")
     end
@@ -147,77 +123,12 @@ end
 
 
 
-mutable struct PTI_TDVPCache{T} <: OptimizerCache
-    #Ensemble averages:
-    L∂L::Array{T,4}
-    ΔLL::Array{T,4}
 
-    #Sums:
-    mlL::T
-    acceptance::Float64#UInt64
 
-    #Gradient:
-    ∇::Array{T,4}
 
-    # Metric tensor:
-    S::Array{T,2}
-    avg_G::Array{T}
-end
+### EDIT LATER:
 
-function PTI_TDVPCache(A::Array{T,4},params::Parameters) where {T<:Complex{<:AbstractFloat}} 
-    cache=PTI_TDVPCache(
-        zeros(T, params.uc_size, params.χ, params.χ, 4),
-        zeros(T, params.uc_size, params.χ, params.χ, 4),
-        convert(T, 0),
-        0.0,
-        zeros(T, params.uc_size, params.χ, params.χ, 4),
-        zeros(T, 4*params.χ^2*params.uc_size, 4*params.χ^2*params.uc_size),
-        zeros(T, 4*params.χ^2*params.uc_size)
-    )  
-    return cache
-end
-
-mutable struct PTI_TDVPl1{T<:Complex{<:AbstractFloat}} <: TDVP{T}
-
-    #MPO:
-    #A::Array{T,3}
-    mpo::PTI_MPO{T}
-
-    #Sampler:
-    sampler::MetropolisSampler
-
-    #Optimizer:
-    optimizer_cache::PTI_TDVPCache{T}#Union{ExactCache{T},Nothing}
-
-    #1-local Lindbladian:
-    l1::Matrix{T}
-
-    #Diagonal operators:
-    ising_op::IsingInteraction
-    dephasing_op::Dephasing
-
-    #Parameters:
-    params::Parameters
-    ϵ::Float64
-
-    #Workspace:
-    workspace::Workspace{T}#Union{workspace,Nothing}
-
-end
-
-export PTI_TDVP
-
-function PTI_TDVP(sampler::MetropolisSampler, mpo::PTI_MPO{T}, l1::Matrix{T}, ϵ::Float64, params::Parameters, ising_int::String) where {T<:Complex{<:AbstractFloat}} 
-    if ising_int=="Ising" 
-        optimizer = PTI_TDVPl1(mpo, sampler, PTI_TDVPCache(mpo.A, params), l1, Ising(), LocalDephasing(), params, ϵ, set_workspace(mpo.A, params))
-    elseif ising_int=="LRIsing"
-        optimizer = PTI_TDVPl1(mpo, sampler, PTI_TDVPCache(mpo.A, params), l1, LongRangeIsing(params), LocalDephasing(), params, ϵ, set_workspace(mpo.A, params))
-    else
-        error("Unrecognized Ising interaction")
-    end
-    return optimizer
-end
-
+"""
 
 abstract type ExactTDVP{T} <: Optimizer{T} end
 
@@ -289,3 +200,4 @@ function TDVP(basis::Basis, mpo::TI_MPO{T}, l1::Matrix{T}, ϵ::Float64, params::
     end
     return optimizer
 end
+"""
