@@ -121,6 +121,41 @@ function TDVP(sampler::MetropolisSampler, mpo::MPO{T}, l1::Matrix{T}, l2::Array{
     return optimizer
 end
 
+mutable struct TDVP_H{T<:Complex{<:AbstractFloat}} <: TDVP{T}
+
+    #MPO:
+    #A::Array{T,3}
+    mpo::MPO{T}
+
+    #Sampler:
+    sampler::MetropolisSampler
+
+    #Optimizer:
+    optimizer_cache::TDVPCache{T}#Union{ExactCache{T},Nothing}
+
+    #1-local Lindbladian:
+    l1::Matrix{T}
+    l2::Array{T}
+
+    #Diagonal operators:
+    ising_op::IsingInteraction
+    dephasing_op::Dephasing
+
+    #Parameters:
+    params::Parameters
+    ϵ::Float64
+
+    #Workspace:
+    workspace::Workspace{T}#Union{workspace,Nothing}
+
+end
+
+export TDVP_H
+
+function TDVP_H(sampler::MetropolisSampler, mpo::MPO{T}, l1::Matrix{T}, l2::Array{T}, ϵ::Float64, params::Parameters) where {T<:Complex{<:AbstractFloat}} 
+    optimizer = TDVP_H(mpo, sampler, TDVPCache(mpo.A, params), l1, l2, SquareIsing(), LocalDephasing(), params, ϵ, set_workspace(mpo.A, params))
+    return optimizer
+end
 
 
 

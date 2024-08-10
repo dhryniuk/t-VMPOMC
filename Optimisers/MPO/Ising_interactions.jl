@@ -42,15 +42,24 @@ function Ising_interaction_energy(ising_op::SquareIsing, sample::Projector, opti
     for k::UInt16 in 0:L-1
         for j::UInt16 in 1:L
 
+
+
             #Horizontal:
             l_int_ket = (2*sample.ket[j+k*L]-1)*(2*sample.ket[mod(j,L)+1+k*L]-1)
             l_int_bra = (2*sample.bra[j+k*L]-1)*(2*sample.bra[mod(j,L)+1+k*L]-1)
             l_int += l_int_ket-l_int_bra
 
+            #println(j+k*L, "-", mod(j,L)+1+k*L, ":")
+            #display(-1.0im*params.J*(l_int_ket-l_int_bra))
+            #println(j+k*L, "-", j+mod(k+1,L)*L, ":")
+            #display(-1.0im*params.J*(l_int_ket-l_int_bra))
+
             #Vertical:
             l_int_ket = (2*sample.ket[j+k*L]-1)*(2*sample.ket[j+mod(k+1,L)*L]-1)
             l_int_bra = (2*sample.bra[j+k*L]-1)*(2*sample.bra[j+mod(k+1,L)*L]-1)
             l_int += l_int_ket-l_int_bra
+
+
 
         end
     end

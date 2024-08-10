@@ -36,6 +36,7 @@ dVEC =   Dict((0,0) => [1,0,0,0], (0,1) => [0,1,0,0], (1,0) => [0,0,1,0], (1,1) 
 dVEC_transpose::Dict{Tuple{Bool,Bool},Matrix} = Dict((0,0) => [1 0 0 0], (0,1) => [0 1 0 0], (1,0) => [0 0 1 0], (1,1) => [0 0 0 1])
 dUNVEC = Dict([1,0,0,0] => (0,0), [0,1,0,0] => (0,1), [0,0,1,0] => (1,0), [0,0,0,1] => (1,1))
 TLS_Liouville_Space::Vector{Tuple{Bool,Bool}} = [(0,0),(0,1),(1,0),(1,1)]
+#TLS_Liouville_Space::Vector{Tuple{Bool,Bool}} = [(1,1),(1,0),(0,1),(0,0)]
 dINDEX2 = Dict(1 => 1, 0 => 2)
 dVEC2 = Dict(0 => [1,0], 1 => [0,1])
 
