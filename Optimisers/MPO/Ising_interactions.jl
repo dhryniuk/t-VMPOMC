@@ -33,6 +33,41 @@ function Ising_interaction_energy(ising_op::LongRangeIsing, sample::Projector, o
     return -1.0im*params.J*l_int/ising_op.Kac_norm
 end
 
+function Ising_interaction_energy(ising_op::CompetingIsing, sample::Projector, optimizer::Optimizer{T}) where {T<:Complex{<:AbstractFloat}} 
+    A = optimizer.mpo.A
+    params = optimizer.params
+
+    ie::T=0.0
+
+    l_int_ket::T = 0.0
+    l_int_bra::T = 0.0
+    l_int::T = 0.0
+    for i::Int16 in 1:params.N-1
+        for j::Int16 in i+1:params.N
+            l_int_ket = (2*sample.ket[i]-1)*(2*sample.ket[j]-1)
+            l_int_bra = (2*sample.bra[i]-1)*(2*sample.bra[j]-1)
+            dist = min(abs(i-j), abs(params.N+i-j))^ising_op.α1
+            l_int += (l_int_ket-l_int_bra)/dist
+        end
+    end
+    ie += -1.0im*params.J1*l_int/ising_op.Kac_norm1
+
+    l_int_ket = 0.0
+    l_int_bra = 0.0
+    l_int = 0.0
+    for i::Int16 in 1:params.N-1
+        for j::Int16 in i+1:params.N
+            l_int_ket = (2*sample.ket[i]-1)*(2*sample.ket[j]-1)
+            l_int_bra = (2*sample.bra[i]-1)*(2*sample.bra[j]-1)
+            dist = min(abs(i-j), abs(params.N+i-j))^ising_op.α2
+            l_int += (l_int_ket-l_int_bra)/dist
+        end
+    end
+    ie += -1.0im*params.J2*l_int/ising_op.Kac_norm2
+
+    return ie
+end
+
 function Ising_interaction_energy(ising_op::SquareIsing, sample::Projector, optimizer::Optimizer{T}) where {T<:Complex{<:AbstractFloat}} 
     A = optimizer.mpo.A
     params = optimizer.params

@@ -129,7 +129,7 @@ function tensor_sweep_Lindblad!(sample::Projector, ρ_sample::T, optimizer::TDVP
     end
     temp_local_L /= ρ_sample
 
-    return temp_local_L
+    return temp_local_L, 0
 end
 
 function tensor_sweep_Lindblad!(sample::Projector, ρ_sample::T, optimizer::TDVPl2{T}) where {T<:Complex{<:AbstractFloat}} 
@@ -178,7 +178,7 @@ function tensor_sweep_Lindblad!(sample::Projector, ρ_sample::T, optimizer::TDVP
 
     temp_local_L /= ρ_sample
 
-    return temp_local_L
+    return temp_local_L, 0
 end
 
 
@@ -530,12 +530,13 @@ function tensor_update!(optimizer::TDVP{T}, sample::Projector) where {T<:Complex
     #Add in Ising interaction terms:
     l_int = Ising_interaction_energy(optimizer.ising_op, sample, optimizer)
 
-    local_L += local_L_int
+    #local_L += local_L_int
+    local_L += l_int
 
     #display(sample)
     #display(local_L_int)
     #display(l_int)
-    #sleep(4)
+    #sleep(5)
     #error()
     #local_L += l_int
 

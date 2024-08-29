@@ -15,6 +15,13 @@ struct LongRangeIsing <: IsingInteraction
     Kac_norm::Float64
 end
 
+struct CompetingIsing <: IsingInteraction
+    α1::Float64
+    Kac_norm1::Float64
+    α2::Float64
+    Kac_norm2::Float64
+end
+
 function HarmonicNumber(n::Int,α::Float64)
     h=0
     for i in 1:n
@@ -23,10 +30,7 @@ function HarmonicNumber(n::Int,α::Float64)
     return h
 end
 
-function Kac_norm(params::Parameters)
-    N = params.N
-    α = params.α
-
+function Kac_norm(N, α)
     if mod(N,2)==0
         return (2*HarmonicNumber(1+N÷2,α) - 1 - (1+N÷2)^(-α))
     else
@@ -37,8 +41,16 @@ end
 function LongRangeIsing(params::Parameters)
     α = params.α
     #K = 1
-    K = Kac_norm(params)
+    K = Kac_norm(params.N, params.α)
     return LongRangeIsing(α,K)
+end
+
+function CompetingIsing(params::Parameters)
+    α1 = params.α1
+    K1 = Kac_norm(params.N, params.α1)
+    α2 = params.α2
+    K2 = Kac_norm(params.N, params.α2)
+    return CompetingIsing(α1,K1,α2,K2)
 end
 
 abstract type Dephasing <: DiagonalOperators end

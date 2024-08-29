@@ -1,4 +1,4 @@
-export tensor_magnetization, tensor_purity, tensor_correlation, tensor_cummulant, C2
+export tensor_magnetization, tensor_purity, tensor_correlation, tensor_cummulant, C2, modulated_magnetization
 
 
 function tensor_magnetization(site, params::Parameters, mpo::MPO{ComplexF64}, op::Array{ComplexF64})
@@ -33,6 +33,26 @@ function tensor_purity(params::Parameters, mpo::MPO{ComplexF64})
     return @tensor B[a,a,u,u]
 end
 
+
+export tensor_calculate_correlation
+
+function tensor_calculate_correlation(params::Parameters, mpo::MPO{ComplexF64}, op::Array{ComplexF64})
+    A = reshape(mpo.A[1,:,:,:],params.χ,params.χ,2,2)
+    B=zeros(ComplexF64,params.χ,params.χ)
+    D=zeros(ComplexF64,params.χ,params.χ)
+    @tensor B[a,b]=A[a,b,c,d]*op[c,d]
+    T=deepcopy(B)
+    C=deepcopy(B)
+    @tensor C[a,b] = B[a,c]*T[c,b]
+    for _ in 1:params.N-2
+        @tensor D[a,b] = C[a,c]*A[c,b,e,e]
+        C=deepcopy(D)
+    end
+    return real( @tensor C[a,a] )
+end
+
+
+
 function tensor_correlation(site1::Int64, site2::Int64, op1::Array{ComplexF64}, op2::Array{ComplexF64}, params::Parameters, mpo::MPO{ComplexF64})
     if site1==site2
         error("Tensor correalations site indices are the same!")
@@ -40,6 +60,8 @@ function tensor_correlation(site1::Int64, site2::Int64, op1::Array{ComplexF64}, 
     A = mpo.A
     B = zeros(ComplexF64,params.χ,params.χ)
     B += diagm(ones(params.χ))
+    #display(B)
+    #error()
     for i in 1:params.N
         n = mod1(i, params.uc_size)
         A_reshaped = reshape(A[n,:,:,:],params.χ,params.χ,2,2)
@@ -51,7 +73,7 @@ function tensor_correlation(site1::Int64, site2::Int64, op1::Array{ComplexF64}, 
             @tensor B[a,b] := B[a,e]*A_reshaped[e,b,c,c]
         end
     end
-    return @tensor B[a,a]
+    return real( @tensor B[a,a] )
 end
 
 #function unit_cell_averaged_correlation(site1::Int64, site2::Int64, op1::Array{ComplexF64}, op2::Array{ComplexF64}, params::Parameters, mpo::MPO{ComplexF64})
@@ -59,7 +81,7 @@ end
 #end
 
 function tensor_cummulant(site1::Int64, site2::Int64, op1::Array{ComplexF64}, op2::Array{ComplexF64}, params::Parameters, mpo::MPO{ComplexF64})
-    return tensor_correlation(site1, site2, op1, op2, params, mpo) - tensor_magnetization(site1, params, mpo, op1)*tensor_magnetization(site2, params, mpo, op2)
+    return real( tensor_correlation(site1, site2, op1, op2, params, mpo) )#- tensor_magnetization(site1, params, mpo, op1)*tensor_magnetization(site2, params, mpo, op2) )
 end
 
 function C2(op1::Array{ComplexF64}, op2::Array{ComplexF64}, params::Parameters, mpo::MPO{ComplexF64})
@@ -73,5 +95,50 @@ function C2(op1::Array{ComplexF64}, op2::Array{ComplexF64}, params::Parameters, 
             end
         end
     end
-    return c2/params.N^2
+    return real( c2/params.N^2 )
+end
+
+
+export squared_magnetization, squared_staggered_magnetization
+
+function squared_magnetization(params::Parameters, mpo::MPO{ComplexF64}, op::Array{ComplexF64})
+    m::ComplexF64 = 0
+    for i in 1:params.N
+        for j in 1:params.N
+            if i == j
+                m += tensor_magnetization(i, params, mpo, id)
+            else
+                m += tensor_correlation(i, j, op, op, params, mpo)
+            end
+        end
+    end
+    return abs( real( m / (params.N^2) ) )
+end
+
+function squared_staggered_magnetization(params::Parameters, mpo::MPO{ComplexF64}, op::Array{ComplexF64})
+    m::ComplexF64 = 0
+    for i in 1:params.N
+        for j in 1:params.N
+            if i == j
+                m += tensor_magnetization(i, params, mpo, id)
+            else
+                m += (-1)^(i+j) * tensor_correlation(i, j, op, op, params, mpo)
+            end
+        end
+    end
+    return abs( real( m / (params.N^2) ) )
+end
+
+function modulated_magnetization(phase::Float64, params::Parameters, mpo::MPO{ComplexF64}, op::Array{ComplexF64})
+    m::ComplexF64 = 0
+    for i in 1:params.N
+        for j in 1:params.N
+            if i == j
+                m += tensor_magnetization(i, params, mpo, id)
+            else
+                m += exp(1im*phase*(j-i)) * tensor_correlation(i, j, op, op, params, mpo)
+            end
+        end
+    end
+    return abs( real( m / (params.N^2) ) )
 end
