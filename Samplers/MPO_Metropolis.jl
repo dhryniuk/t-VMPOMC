@@ -1,5 +1,5 @@
 #Sweeps lattice from right to left
-function Metropolis_sweep_left!(sample::Projector, optimizer::TDVP{T}) where {T<:Complex{<:AbstractFloat}} 
+function MetropolisSweepLeft!(sample::Projector, optimizer::TDVP{T}) where {T<:Complex{<:AbstractFloat}} 
     A = optimizer.mpo.A
     params = optimizer.params
     ws = optimizer.workspace
@@ -44,7 +44,7 @@ function Metropolis_sweep_left!(sample::Projector, optimizer::TDVP{T}) where {T<
 end
 
 #Sweeps lattice from left to right
-function Metropolis_sweep_right!(sample::Projector, optimizer::TDVP{T}) where {T<:Complex{<:AbstractFloat}} 
+function MetropolisSweepRight!(sample::Projector, optimizer::TDVP{T}) where {T<:Complex{<:AbstractFloat}} 
     A = optimizer.mpo.A
     params = optimizer.params
     ws = optimizer.workspace
@@ -68,7 +68,7 @@ function Metropolis_sweep_right!(sample::Projector, optimizer::TDVP{T}) where {T
         mul!(ws.Metro_2, ws.Metro_1, ws.R_set[params.N+1-i])
         P = tr(ws.Metro_2)  # proposal probability amplitude
         
-        metropolis_prob = abs2(P / C)
+        metropolis_prob = abs2(P/C)
         if rand() <= metropolis_prob
             sample_ket[i] = new_ket
             sample_bra[i] = new_bra
@@ -99,8 +99,8 @@ function MPO_Metropolis_burn_in!(optimizer::TDVP{T}) where {T<:Complex{<:Abstrac
 
     # Perform burn_in:
     for _ in 1:optimizer.sampler.burn
-        sample,_ = Metropolis_sweep_left!(sample,optimizer)
-        sample,_ = Metropolis_sweep_right!(sample,optimizer)
+        sample,_ = MetropolisSweepLeft!(sample,optimizer)
+        sample,_ = MetropolisSweepRight!(sample,optimizer)
     end
     return sample
 end

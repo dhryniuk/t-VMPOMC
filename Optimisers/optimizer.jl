@@ -171,8 +171,8 @@ abstract type ExactTDVP{T} <: Optimizer{T} end
 
 mutable struct TI_ExactTDVPCache{T} <: OptimizerCache
     #Ensemble averages:
-    L∂L::Array{T,3}
-    ΔLL::Array{T,3}
+    L∂L::Array{T,4}
+    ΔLL::Array{T,4}
 
     Z::Float64
 
@@ -180,20 +180,20 @@ mutable struct TI_ExactTDVPCache{T} <: OptimizerCache
     mlL::T
 
     #Gradient:
-    ∇::Array{T,3}
+    ∇::Array{T,4}
 
     # Metric tensor:
     S::Array{T,2}
     avg_G::Array{T}
 end
 
-function TI_ExactTDVPCache(A::Array{T,3},params::Parameters) where {T<:Complex{<:AbstractFloat}} 
+function TI_ExactTDVPCache(A::Array{T,4},params::Parameters) where {T<:Complex{<:AbstractFloat}} 
     cache=TI_ExactTDVPCache(
-        zeros(T, params.χ, params.χ, 4),
-        zeros(T, params.χ, params.χ, 4),
+        zeros(T, params.uc_size, params.χ, params.χ, 4),
+        zeros(T, params.uc_size, params.χ, params.χ, 4),
         0.0,
         convert(T,0),
-        zeros(T,params.χ,params.χ,4),
+        zeros(T,params.uc_size,params.χ,params.χ,4),
         zeros(T,4*params.χ^2,4*params.χ^2),
         zeros(T,4*params.χ^2)
     )  
@@ -203,7 +203,7 @@ end
 mutable struct TI_ExactTDVPl1{T<:Complex{<:AbstractFloat}} <: ExactTDVP{T}
 
     #MPO:
-    mpo::TI_MPO{T}
+    mpo::MPO{T}
 
     #Basis:
     basis::Basis
@@ -227,7 +227,7 @@ mutable struct TI_ExactTDVPl1{T<:Complex{<:AbstractFloat}} <: ExactTDVP{T}
 
 end
 
-function TDVP(basis::Basis, mpo::TI_MPO{T}, l1::Matrix{T}, ϵ::Float64, params::Parameters, ising_int::String) where {T<:Complex{<:AbstractFloat}} 
+function TDVP(basis::Basis, mpo::MPO{T}, l1::Matrix{T}, ϵ::Float64, params::Parameters, ising_int::String) where {T<:Complex{<:AbstractFloat}} 
     if ising_int=="Ising" 
         optimizer = TI_ExactTDVPl1(mpo, basis, TI_ExactTDVPCache(mpo.A, params), l1, Ising(), LocalDephasing(), params, ϵ, set_workspace(mpo.A, params))
     elseif ising_int=="LRIsing"

@@ -1,4 +1,4 @@
-export normalize_MPO!
+export NormalizeMPO!
 
 export MPO
 

@@ -16,23 +16,23 @@ Jx= 0.0 #interaction strength
 Jy= 0.0 #interaction strength
 Jz= 0.0 #interaction strength
 J1= -1.0 #interaction strength
-J2= -0.5 #interaction strength
+J2= 0.5 #interaction strength
 hx= 0.5 #transverse field strength
 hz= 0.0 #longitudinal field strength
 γ = 1.0 #spin decay rate
 N = 12 #number of spins
-α1 = 1
-α2 = 3
+α1 = 1.0
+α2 = 3.0
 γ_d = 0
 
 #Set hyperparameters:
 χ = 6 #MPO bond dimension
 burn_in = 2 #Monte Carlo burn-in
-δ = 0.02 #step size
-ϵ = 0.01
+δ = 0.002 #step size
+ϵ = 0.00001
 N_iterations = 500
 uc_size = 1
-N_MC = 2500 #number of Monte Carlo samples
+N_MC = 5000 #number of Monte Carlo samples
 ising_int = "CompetingIsing"
 
 params = Parameters(N,χ,Jx,Jy,Jz,J1,J2,hx,hz,γ,γ_d,α1,α2,uc_size)
@@ -66,7 +66,7 @@ mpo = MPO(A_init)
 #Define sampler and optimizer:
 sampler = MetropolisSampler(N_MC, burn_in)
 optimizer = TDVP(sampler, mpo, l1, ϵ, params, ising_int)
-normalize_MPO!(params, optimizer)
+NormalizeMPO!(params, optimizer)
 
 if mpi_cache.rank == 0
     #Save parameters to parameter file:
@@ -101,10 +101,10 @@ Mz_mod_list = []
 for k in 1:N_iterations
 
     #Optimize MPO:
-    tensor_compute_gradient!(optimizer)
+    TensorComputeGradient!(optimizer)
     MPI_mean!(optimizer, mpi_cache)
     if mpi_cache.rank == 0
-        optimize!(optimizer, δ)
+        Optimize!(optimizer, δ)
     end
     MPI.Bcast!(optimizer.mpo.A, 0, mpi_cache.comm)
 
@@ -121,7 +121,7 @@ for k in 1:N_iterations
         mx=0.0
         my=0.0
         mz=0.0
-        for n in 1:1#1:uc_size
+        for n in 1:uc_size
             mx += real.( tensor_magnetization(n,params,mpo,sx) )
             my += real.( tensor_magnetization(n,params,mpo,sy) )
             mz += real.( tensor_magnetization(n,params,mpo,sz) )
@@ -145,16 +145,30 @@ for k in 1:N_iterations
         Mz_sq = ( squared_magnetization(params, mpo, sz) )^0.5
         Mz_stag = ( squared_staggered_magnetization(params, mpo, sz) )^0.5
         Mz_mod = ( modulated_magnetization(2π/params.N, params, mpo, sz) )^0.5
-        #M_stag_e = efficient_squared_staggered_magnetization(params, mpo, sz)
 
         list_of_C = open("C.out", "a")
         println(list_of_C, real(optimizer.optimizer_cache.mlL2)/N)
         close(list_of_C)
 
         list_of_obs = open("obs.out", "a")
-        println(list_of_obs, mx, ",", my, ",", mz, ",", Z)
+        println(list_of_obs, mx, ",", my, ",", mz, ",", Z, ",", S2)
         close(list_of_obs)
 
+        list_of_obs = open("S_XX.out", "a")
+        println(list_of_obs, Mx_sq, ",", Mx_stag, ",", Mx_mod)
+        close(list_of_obs)
+
+        list_of_obs = open("S_ZZ.out", "a")
+        println(list_of_obs, Mz_sq, ",", Mz_stag, ",", Mz_mod)
+        close(list_of_obs)
+
+        list_of_obs = open("CXX.out", "a")
+        println(list_of_obs, Cxx)
+        close(list_of_obs)
+
+        list_of_obs = open("CZZ.out", "a")
+        println(list_of_obs, Czz)
+        close(list_of_obs)
 
         push!(mlL2_list, real(optimizer.optimizer_cache.mlL2)/N)
         push!(mx_list, mx)
@@ -167,9 +181,6 @@ for k in 1:N_iterations
         push!(Mz_sq_list, Mz_sq)
         push!(Mz_stag_list, Mz_stag)
         push!(Mz_mod_list, Mz_mod)
-        #push!(M_stag_e_list, M_stag_e)
-        #push!(Cxx_list, Cxx)
-        #push!(Czz_list, Czz)
         push!(Cxx_list, Cxx)
         push!(Czz_list, Czz)
         #push!(C2x_list, C2x)
@@ -187,17 +198,17 @@ for k in 1:N_iterations
             p = plot(S2_list)
             savefig(p, "S2.png")
             p = plot(Mx_sq_list)
-            savefig(p, "M_sq.png")
+            savefig(p, "Mx_sq.png")
             p = plot(Mx_stag_list)
-            savefig(p, "M_stag.png")
+            savefig(p, "Mx_stag.png")
             p = plot(Mx_mod_list)
-            savefig(p, "M_mod.png")
+            savefig(p, "Mx_mod.png")
             p = plot(Mz_sq_list)
-            savefig(p, "M_sq.png")
+            savefig(p, "Mz_sq.png")
             p = plot(Mz_stag_list)
-            savefig(p, "M_stag.png")
+            savefig(p, "Mz_stag.png")
             p = plot(Mz_mod_list)
-            savefig(p, "M_mod.png")
+            savefig(p, "Mz_mod.png")
             #p = plot(Cxx_list)
             #savefig(p, "Cxx.png")
             #p = plot(Czz_list)

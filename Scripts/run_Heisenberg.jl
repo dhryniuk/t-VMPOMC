@@ -102,10 +102,10 @@ end
 for k in 1:N_iterations
 
     #Optimize MPO:
-    tensor_compute_gradient!(optimizer)
+    TensorComputeGradient!(optimizer)
     MPI_mean!(optimizer, mpi_cache)
     if mpi_cache.rank == 0
-        optimize!(optimizer, δ)
+        Optimize!(optimizer, δ)
     end
     MPI.Bcast!(optimizer.mpo.A, 0, mpi_cache.comm)
 
