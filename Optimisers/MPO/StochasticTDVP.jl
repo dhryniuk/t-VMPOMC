@@ -20,25 +20,6 @@ function NormalizeMPO!(params::Parameters, optimizer::TDVP{T}) where {T<:Complex
     optimizer.mpo.A = A
 end
 
-"""
-function NormalizeMPO!(norm, params::Parameters, optimizer::TDVP{T}) where {T<:Complex{<:AbstractFloat}} 
-    A = optimizer.mpo.A
-    ws = optimizer.workspace
-    #=
-    _MPO = ws.ID
-    for i in 1:params.N
-        n = mod1(i,params.uc_size)
-        _MPO*=(A[n,:,:,1]+A[n,:,:,4])
-    end
-    trMPO = tr(_MPO)^(1/params.N)
-    A./=trMPO
-    =#
-    norm = maximum(abs.(optimizer.mpo.A))
-    A./=norm
-    optimizer.mpo.A = A
-end
-"""
-
 function UpdateSR!(optimizer::TDVP{T}) where {T<:Complex{<:AbstractFloat}}
     S::Array{T,2} = optimizer.optimizer_cache.S
     avg_G::Vector{T} = optimizer.optimizer_cache.avg_G
@@ -81,16 +62,12 @@ end
 function f_variance(V, local_estimators, gggradients, params)
     ggradients = [gggradients[i, :, :, :, :] for i in 1:size(gggradients, 1)]
     gradients = [reshape(ggradients[i], (1,4*params.χ^2))*V for i in 1:length(ggradients)]
-    #gradients = [reshape(ggradients[i], (1,4*params.χ^2))*V for i in 1:length(ggradients)]
     mean_gradient = mean(gradients)
     mean_local_estimator = mean(local_estimators)
     f_var = similar(gradients[1])
     diff = similar(f_var)
     f_var .= 0
     diff .= 0
-
-    #display(length(ggradients))
-    #error()
 
     for (i,_) in enumerate(local_estimators)
         Q = conj.(gradients[i])
@@ -104,159 +81,6 @@ function f_variance(V, local_estimators, gggradients, params)
     f_var -= conj.(diff).*diff    
 
     return f_var, conj.(diff).*diff
-end
-
-
-function SoftCutoffReconfigure!(optimizer::TDVP{T}, local_estimators, gradients) where {T<:Complex{<:AbstractFloat}} #... the gradient tensor
-    data = optimizer.optimizer_cache
-    N_MC = optimizer.sampler.N_MC
-    ϵ = optimizer.ϵ
-    params = optimizer.params
-
-    #Compute metric tensor:
-    data.S./=N_MC
-    data.avg_G./=N_MC
-    conj_avg_G = conj(data.avg_G)
-    #data.S-=data.avg_G*transpose(conj_avg_G)  ### WARNING: MAY NOT BE CORRECT !!!
-    data.S -= conj_avg_G*transpose(data.avg_G)
-
-    #Regularize the metric tensor:
-    #data.S+=ϵ*Matrix{Int}(I, size(data.S))
-
-    #grad = (data.L∂L-data.ΔLL)/N_MC
-    #flat_grad = reshape(grad,prod(size(grad)))
-    #flat_grad = inv(data.S+ϵ*Matrix{Int}(I, size(data.S)))*flat_grad
-    #display(norm(flat_grad))
-    #display(flat_grad)
-
-    #s,b = eigen(inv(data.S+ϵ*Matrix{Int}(I, size(data.S))))
-    #display(s)
-
-    #Reconfigure gradient:
-    grad = (data.L∂L-data.ΔLL)/N_MC
-    flat_grad = reshape(grad,prod(size(grad)))
-    flat_grad = inv(data.S+ϵ*Matrix{Int}(I, size(data.S)))*flat_grad
-    #display(flat_grad)
-
-    flat_grad = reshape(grad,prod(size(grad)))
-    #error()
-
-    cutoff = 10^(-5)
-
-    σ, V = eigen(data.S)
-    σ = real.(σ)
-    #display(σ)
-    offset = minimum(σ)
-    if offset<0
-        σ, V = eigen(data.S-2*offset*Matrix{Int}(I, size(data.S)))
-        σ = real.(σ)
-        #display(σ)
-    end
-    #display(σ)
-
-    #display(V*diagm(σ)*V')
-    #error()
-    λ1 = maximum(σ)
-    σ_inv = zeros(length(σ))
-    for i in 1:length(σ)
-        if σ[i]>cutoff
-            σ_inv[i] = (σ[i] * (1 + (ϵ/abs(σ[i]/λ1))^6))^(-1) 
-        end
-    end 
-
-    #display(σ_inv)
-
-    flat_grad = V*diagm(σ_inv)*inv(V)*flat_grad
-
-    #display(flat_grad)
-    #error()
-
-
-
-
-
-
-
-    #grad = (data.L∂L-data.ΔLL)/N_MC
-    #flat_grad = reshape(grad,prod(size(grad)))
-    #flat_grad = inv(data.S+ϵ*Matrix{Int}(I, size(data.S)))*flat_grad
-
-    data.∇ = reshape(flat_grad, size(data.∇))
-end
-
-
-function HardCutoffReconfigure!(optimizer::TDVP{T}, local_estimators, gradients) where {T<:Complex{<:AbstractFloat}} #... the gradient tensor
-    data = optimizer.optimizer_cache
-    N_MC = optimizer.sampler.N_MC
-    ϵ = optimizer.ϵ
-    params = optimizer.params
-
-    #Compute metric tensor:
-    data.S./=N_MC
-    data.avg_G./=N_MC
-    conj_avg_G = conj(data.avg_G)
-    #data.S-=data.avg_G*transpose(conj_avg_G)  ### WARNING: MAY NOT BE CORRECT !!!
-    data.S -= conj_avg_G*transpose(data.avg_G)
-
-    #Regularize the metric tensor:
-    #data.S+=ϵ*Matrix{Int}(I, size(data.S))
-
-    #Reconfigure gradient:
-    grad = (data.L∂L-data.ΔLL)/N_MC
-    flat_grad = reshape(grad,prod(size(grad)))
-    flat_grad = inv(data.S+ϵ*Matrix{Int}(I, size(data.S)))*flat_grad
-    #display(flat_grad)
-
-    flat_grad = reshape(grad,prod(size(grad)))
-    #error()
-
-    cutoff = 10^(-8)
-
-    σ, V = eigen(data.S+10^(-8)*Matrix{Int}(I, size(data.S)))
-    #σ, V = eigen(data.S)
-    σ = real.(σ)
-    """
-    #display(σ)
-    offset = minimum(σ)
-    if offset<0
-        σ, V = eigen(data.S-2*offset*Matrix{Int}(I, size(data.S)))
-        σ = real.(σ)
-        #display(σ)
-    end
-    #CHECK IF V HAS CHANGED? 
-    #display(σ)
-    """
-
-    #display(V*diagm(σ)*V')
-    #error()
-    σ_inv = zeros(length(σ))
-    for i in 1:length(σ)
-        if σ[i]>cutoff
-            σ_inv[i] = σ[i]^(-1)
-        end
-    end 
-
-    #display(σ_inv)
-
-    flat_grad = V*diagm(σ_inv)*V'*flat_grad
-
-    #display(flat_grad)
-    #error()
-
-    display(length(gradients))
-
-
-
-
-
-    #grad = (data.L∂L-data.ΔLL)/N_MC
-    #flat_grad = reshape(grad,prod(size(grad)))
-    #flat_grad = inv(data.S+ϵ*Matrix{Int}(I, size(data.S)))*flat_grad
-
-    #local_estimators = []
-    #gradients = []
-
-    data.∇ = reshape(flat_grad, size(data.∇))
 end
 
 function Reconfigure!(optimizer::TDVP{T}, local_estimators, gradients) where {T<:Complex{<:AbstractFloat}} #... the gradient tensor
@@ -295,93 +119,6 @@ function Reconfigure!(optimizer::TDVP{T}, local_estimators, gradients) where {T<
     data.∇ = reshape(flat_grad, size(data.∇))
 end
 
-function badReconfigure!(optimizer::TDVP{T}) where {T<:Complex{<:AbstractFloat}} #... the gradient tensor
-    data = optimizer.optimizer_cache
-    N_MC = optimizer.sampler.N_MC
-    ϵ = optimizer.ϵ
-    params = optimizer.params
-
-    #Compute metric tensor:
-    data.S./=N_MC
-    data.avg_G./=N_MC
-    conj_avg_G = conj(data.avg_G)
-    #data.S-=data.avg_G*transpose(conj_avg_G)  ### WARNING: MAY NOT BE CORRECT !!!
-    data.S -= conj_avg_G*transpose(data.avg_G)
-
-    #Regularize the metric tensor:
-    #data.S+=ϵ*Matrix{Int}(I, size(data.S))
-
-    #grad = (data.L∂L-data.ΔLL)/N_MC
-    #flat_grad = reshape(grad,prod(size(grad)))
-    #flat_grad = inv(data.S+ϵ*Matrix{Int}(I, size(data.S)))*flat_grad
-    #display(norm(flat_grad))
-    #display(flat_grad)
-
-    #Reconfigure gradient:
-    grad = (data.L∂L-data.ΔLL)/N_MC
-    flat_grad = reshape(grad,prod(size(grad)))
-    #flat_grad = inv(data.S)*flat_grad
-
-    σ, V = eigen(data.S)
-    #display(σ)
-    
-    #display(minimum(σ))
-    #sleep(1)
-    #σ.-=minimum(abs.(σ))*2#*1.0001
-    #σ = abs.(σ)
-    #display(σ)
-    #display(data.S)
-    #display(inv(data.S))
-    #error()
-
-    #display(flat_grad)
-    #display(norm(flat_grad))
-
-    display(V)
-    display(inv(V))
-    display(V')
-    error()
-    
-
-    flat_grad = inv(V)*flat_grad
-    var = data.mlL2 - conj(data.mlL)*data.mlL
-    denom = sqrt.((abs.(flat_grad).^2 .+ σ*var)./N_MC)
-    #denom = sqrt.((norm(flat_grad)^2 .+ σ*var)./N_MC)
-    #SNR = sqrt(N_MC)./sqrt.(1 .+ var*σ./abs.(flat_grad))
-    SNR = abs.(flat_grad).^(2)./denom
-    #SNR = (norm(flat_grad).^2)./denom
-    σ_inv = ( (σ).*(1 .+ (ϵ./SNR).^6) ).^(-1.0)
-    #flat_grad = flat_grad.*( (σ).^(-1.0)./(1 .+ (ϵ./SNR).^6) )
-    #flat_grad = V*flat_grad
-    #flat_grad = diagm(σ_inv)*flat_grad
-    flat_grad = V*diagm(σ_inv)*flat_grad
-
-    #display(SNR)
-    #display(σ)
-    #display(σ_inv)
-    #display(inv(data.S))
-
-    #k, u = eigen(inv(data.S + 0.00000000000001*Matrix{Int}(I, size(data.S))))
-    #display(k)
-
-    #display(norm(flat_grad))
-    #error()
-
-    #display(var)
-    #display(denom)
-    #display(SNR)
-    #dsiplay(flat_grad)
-    #display((σ).^(-0.5))
-    #display((σ).^(-0.5)./(1 .+ (ϵ./SNR).^6))
-    #display(( (σ).^(-1.0)./(1 .+ (ϵ./SNR).^6) ))
-    #display(flat_grad)
-    #display(norm(flat_grad))
-    #error()
-    #sleep(5)
-
-    data.∇ = reshape(flat_grad, size(data.∇))
-end
-
 function Finalize!(optimizer::TDVP{T}) where {T<:Complex{<:AbstractFloat}}
     N_MC = optimizer.sampler.N_MC
     data = optimizer.optimizer_cache
@@ -407,56 +144,6 @@ function Optimize!(optimizer::TDVP{T}, δ::Float64, estimators, gradients) where
     
     NormalizeMPO!(optimizer.params, optimizer)
 end
-
-"""
-function Optimize!(optimizer::TDVP{T}, δ::Float64) where {T<:Complex{<:AbstractFloat}}
-    A = optimizer.mpo.A
-
-    Finalize!(optimizer)
-    Reconfigure!(optimizer)
-
-    ∇  = optimizer.optimizer_cache.∇
-
-    new_A = similar(A)
-    new_A = A + δ*∇
-    A = new_A
-    optimizer.mpo.A = A
-    
-    NormalizeMPO!(optimizer.params, optimizer)
-end
-
-function Optimize!(optimizer::TDVP{T}) where {T<:Complex{<:AbstractFloat}}
-    A = optimizer.mpo.A
-
-    Finalize!(optimizer)
-    Reconfigure!(optimizer)
-
-    ∇  = optimizer.optimizer_cache.∇
-
-    new_A = similar(A)
-    new_A = A + ∇
-    A = new_A
-    optimizer.mpo.A = A
-    
-    NormalizeMPO!(optimizer.params, optimizer)
-end
-
-function Optimize!(norm, optimizer::TDVP{T}, δ::Float64) where {T<:Complex{<:AbstractFloat}}
-    A = optimizer.mpo.A
-
-    Finalize!(optimizer)
-    Reconfigure!(optimizer)
-
-    ∇  = optimizer.optimizer_cache.∇
-
-    new_A = similar(A)
-    new_A = A + δ*∇
-    A = new_A
-    optimizer.mpo.A = A
-    
-    NormalizeMPO!(norm, optimizer.params, optimizer)
-end
-"""
 
 function MPI_mean!(optimizer::TDVP{T}, mpi_cache) where {T<:Complex{<:AbstractFloat}}
     par_cache = optimizer.optimizer_cache
@@ -494,9 +181,6 @@ function MPI_mean!(optimizer::TDVP{T}, mpi_cache) where {T<:Complex{<:AbstractFl
         concat_estimators = Vector{T}(undef, 0)
     end
     MPI.Gather!(loc_estimators, concat_estimators, 0, comm)
-#    if rank == 0
-#        display(concat_estimators)
-#    end
 
     loc_gradients = optimizer.sampler.gradients 
     if rank == 0
@@ -505,9 +189,6 @@ function MPI_mean!(optimizer::TDVP{T}, mpi_cache) where {T<:Complex{<:AbstractFl
         concat_gradients = Vector{T}(undef, 0)
     end
     MPI.Gather!(loc_gradients, concat_gradients, 0, comm)
-#    if rank == 0
-#        display(concat_gradients)
-#    end
 
     return received_estimators, concat_gradients
 end
@@ -583,63 +264,6 @@ function TensorSweepLindblad!(sample::Projector, ρ_sample::T, optimizer::TDVPl2
 
     return temp_local_L, 0
 end
-
-"""
-function wrongTensorSweepLindblad!(sample::Projector, ρ_sample::T, optimizer::TDVPl2{T}) where {T<:Complex{<:AbstractFloat}} 
-    params = optimizer.params
-    ws = optimizer.workspace
-    liouvillian = optimizer.l1
-    #liouvillian_2 = optimizer.l2
-    liouvillian_2 = reshape(optimizer.l2, 4*4,4*4)
-
-    reduced_density_matrix = copy(optimizer.mpo)
-    @tensor reduced_density_matrix.A[n,a,b,c] := liouvillian[c,d]*reduced_density_matrix.A[n,a,b,d]
-
-    temp_local_L::T = 0
-    for j::UInt16 in 1:params.N
-        n = mod1(j, params.uc_size)
-        mul!(ws.loc_1, ws.L_set[j], @view(reduced_density_matrix.A[n,:,:,dINDEX[(sample.ket[j],sample.bra[j])]]))
-        mul!(ws.loc_2, ws.loc_1, ws.R_set[(params.N+1-j)])
-        temp_local_L += tr(ws.loc_2)
-    end
-
-    # INTRA-LAYER TERMS:
-    temp_local_L_int::T = 0
-    for i in 1:params.N
-        j = mod1(i+1, params.N)
-
-        n = mod1(i, params.uc_size)
-        m = mod1(j, params.uc_size)
-
-        B1 = copy(ws.L_set[1])
-        B2 = ws.R_set[(params.N+1-i)] * ws.L_set[i]
-
-        s1 = ws.dVEC_transpose[(sample.ket[i],sample.bra[i])]
-        s2 = ws.dVEC_transpose[(sample.ket[j],sample.bra[j])]
-        ws.s = kron(s1,s2)
-        mul!(ws.bra_L_l2, ws.s, liouvillian_2)
-
-        explicit_summation = 0
-        for (u, state_u) in zip(1:4, TLS_Liouville_Space)
-            for (v, state_v) in zip(1:4, TLS_Liouville_Space)
-                loc = ws.bra_L_l2[v+4*(u-1)]
-                if loc!=0
-                    reduced_density_matrix = loc * optimizer.mpo.A[n,:,:,u] * optimizer.mpo.A[m,:,:,v] * B2
-                    explicit_summation += tr(reduced_density_matrix)
-                end
-            end
-        end
-
-        temp_local_L_int += explicit_summation
-    end
-
-    temp_local_L /= ρ_sample
-    temp_local_L_int /= ρ_sample
-
-    return temp_local_L, temp_local_L_int
-end
-"""
-
 
 function TensorSweepLindblad!(sample::Projector, ρ_sample::T, optimizer::TDVP_H{T}) where {T<:Complex{<:AbstractFloat}} 
     params = optimizer.params
