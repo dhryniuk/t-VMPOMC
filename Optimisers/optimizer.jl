@@ -58,6 +58,7 @@ mutable struct TDVPl1{T<:Complex{<:AbstractFloat}} <: TDVP{T}
     #Parameters:
     params::Parameters
     ϵ::Float64
+    ϵ_SNR::Float64
 
     #Workspace:
     workspace::Workspace{T}#Union{workspace,Nothing}
@@ -66,17 +67,17 @@ end
 
 export TDVP
 
-function TDVP(sampler::MetropolisSampler, mpo::MPO{T}, l1::Matrix{T}, ϵ::Float64, params::Parameters, ising_int::String) where {T<:Complex{<:AbstractFloat}} 
+function TDVP(sampler::MetropolisSampler, mpo::MPO{T}, l1::Matrix{T}, ϵ::Float64, ϵ_SNR::Float64, params::Parameters, ising_int::String) where {T<:Complex{<:AbstractFloat}} 
     if ising_int=="Ising" 
-        optimizer = TDVPl1(mpo, sampler, TDVPCache(mpo.A, params), l1, Ising(), LocalDephasing(), params, ϵ, set_workspace(mpo.A, params))
+        optimizer = TDVPl1(mpo, sampler, TDVPCache(mpo.A, params), l1, Ising(), LocalDephasing(), params, ϵ, ϵ_SNR, set_workspace(mpo.A, params))
     elseif ising_int=="LRIsing"
-        optimizer = TDVPl1(mpo, sampler, TDVPCache(mpo.A, params), l1, LongRangeIsing(params), LocalDephasing(), params, ϵ, set_workspace(mpo.A, params))
+        optimizer = TDVPl1(mpo, sampler, TDVPCache(mpo.A, params), l1, LongRangeIsing(params), LocalDephasing(), params, ϵ, ϵ_SNR, set_workspace(mpo.A, params))
     elseif ising_int=="SquareIsing"
-        optimizer = TDVPl1(mpo, sampler, TDVPCache(mpo.A, params), l1, SquareIsing(), LocalDephasing(), params, ϵ, set_workspace(mpo.A, params))
+        optimizer = TDVPl1(mpo, sampler, TDVPCache(mpo.A, params), l1, SquareIsing(), LocalDephasing(), params, ϵ, ϵ_SNR, set_workspace(mpo.A, params))
     elseif ising_int=="TriangularIsing"
-        optimizer = TDVPl1(mpo, sampler, TDVPCache(mpo.A, params), l1, TriangularIsing(), LocalDephasing(), params, ϵ, set_workspace(mpo.A, params))
+        optimizer = TDVPl1(mpo, sampler, TDVPCache(mpo.A, params), l1, TriangularIsing(), LocalDephasing(), params, ϵ, ϵ_SNR, set_workspace(mpo.A, params))
     elseif ising_int=="CompetingIsing"
-        optimizer = TDVPl1(mpo, sampler, TDVPCache(mpo.A, params), l1, CompetingIsing(params), LocalDephasing(), params, ϵ, set_workspace(mpo.A, params))
+        optimizer = TDVPl1(mpo, sampler, TDVPCache(mpo.A, params), l1, CompetingIsing(params), LocalDephasing(), params, ϵ, ϵ_SNR, set_workspace(mpo.A, params))
     else
         error("Unrecognized Ising interaction")
     end
@@ -106,6 +107,7 @@ mutable struct TDVPl2{T<:Complex{<:AbstractFloat}} <: TDVP{T}
     #Parameters:
     params::Parameters
     ϵ::Float64
+    ϵ_SNR::Float64
 
     #Workspace:
     workspace::Workspace{T}#Union{workspace,Nothing}
@@ -114,9 +116,9 @@ end
 
 export TDVP
 
-function TDVP(sampler::MetropolisSampler, mpo::MPO{T}, l1::Matrix{T}, l2::Array{T}, ϵ::Float64, params::Parameters, ising_int::String) where {T<:Complex{<:AbstractFloat}} 
+function TDVP(sampler::MetropolisSampler, mpo::MPO{T}, l1::Matrix{T}, l2::Array{T}, ϵ::Float64, ϵ_SNR::Float64, params::Parameters, ising_int::String) where {T<:Complex{<:AbstractFloat}} 
     if ising_int=="Ising" 
-        optimizer = TDVPl2(mpo, sampler, TDVPCache(mpo.A, params), l1, l2, Ising(), LocalDephasing(), params, ϵ, set_workspace(mpo.A, params))
+        optimizer = TDVPl2(mpo, sampler, TDVPCache(mpo.A, params), l1, l2, Ising(), LocalDephasing(), params, ϵ, ϵ_SNR, set_workspace(mpo.A, params))
     else
         error("Unrecognized Ising interaction")
     end

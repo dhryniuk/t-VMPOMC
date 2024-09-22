@@ -12,38 +12,39 @@ using JLD
 mpi_cache = set_mpi()
 
 #Set parameters:
-Jx= 0.0 #interaction strength
+Jx= 2.0 #interaction strength
 Jy= 0.0 #interaction strength
-Jz= 0.0 #interaction strength
-J1= -1.0 #interaction strength
-J2= 0.5 #interaction strength
-hx= 0.5 #transverse field strength
-hz= 0.0 #longitudinal field strength
+Jz= 1.0 #interaction strength
+J1= 0.0 #interaction strength
+J2= 0.0 #interaction strength
+hx= 0.0 #transverse field strength
+hz= 1.0 #longitudinal field strength
 γ = 1.0 #spin decay rate
-N = 500 #number of spins
+N = parse(Int64,ARGS[1]) #number of spins
 α1 = 9999.0
-α2 = 0.0
+α2 = 9999.0
 γ_d = 0
 
 #Set hyperparameters:
-χ = 4 #MPO bond dimension
+χ = parse(Int64,ARGS[2]) #MPO bond dimension
+uc_size = parse(Int64,ARGS[3])
+N_MC = parse(Int64,ARGS[4]) #number of Monte Carlo samples
 burn_in = 2 #Monte Carlo burn-in
-δ = 0.02 #step size
-ϵ = 0.001
-N_iterations = 500
-uc_size = 1
-N_MC = 100 #number of Monte Carlo samples
-ising_int = "CompetingIsing"
+δ = parse(Float64,ARGS[5]) #step size
+N_iterations = parse(Int64,ARGS[6])
+ϵ = parse(Float64,ARGS[7])
+ϵ_SNR = parse(Float64,ARGS[8])
+ising_int="Ising"
 
 params = Parameters(N,χ,Jx,Jy,Jz,J1,J2,hx,hz,γ,γ_d,α1,α2,uc_size)
 
-
 #Define one-body Lindbladian operator:
-const l1 = make_one_body_Lindbladian(hx*sx+hz*sz, sqrt(γ)*smx)
+l1 = make_one_body_Lindbladian(hx*sx+hz*sz, sqrt(γ)*sm)
+l2 = Jx*make_two_body_Lindblad_Hamiltonian(sx, sx) + Jy*make_two_body_Lindblad_Hamiltonian(sy, sy) + Jz*make_two_body_Lindblad_Hamiltonian(sz, sz)
+l2 = reshape(l2, 4,4,4,4)
 
 #Save parameters to file:
-dir = "results/Competing_Ising_decay_uc$(uc_size)_chi$(χ)_N$(N)_J1$(J1)_α1$(α1)_J2$(J2)_α2$(α2)_hx$(hx)_hz$(hz)_γ$(γ)"
-
+dir = "results/Reh_1D_uc$(uc_size)_chi$(χ)_N$(N)_J1$(J1)_α1$(α1)_J2$(J2)_α2$(α2)_hx$(hx)_hz$(hz)_γ$(γ)"
 if mpi_cache.rank == 0
     if isdir(dir)==true
         error("Directory already exists")
@@ -55,18 +56,34 @@ end
 Random.seed!(mpi_cache.rank)
 A_init = zeros(ComplexF64, uc_size,χ,χ,4)
 for n in 1:uc_size
-    A_init[n,:,:,1].=1.0/3
-    A_init[n,:,:,2].=1.0/3
-    A_init[n,:,:,3].=1.0/3
-    A_init[n,:,:,4].=1.0/3
+    A_init[n,:,:,1].=1.0/2
+    A_init[n,:,:,2].=1.0im/2#1.0/2
+    A_init[n,:,:,3].=-1.0im/2#1.0/2
+    A_init[n,:,:,4].=1.0/2
 end
-#A_init+= 0.01*rand(ComplexF64, uc_size,χ,χ,4)
 mpo = MPO(A_init)
 
 #Define sampler and optimizer:
-sampler = MetropolisSampler(N_MC, burn_in)
-optimizer = TDVP(sampler, mpo, l1, ϵ, params, ising_int)
+sampler = MetropolisSampler(N_MC, burn_in, params)
+optimizer = TDVP(sampler, mpo, l1, l2, ϵ, ϵ_SNR, params, ising_int)
 NormalizeMPO!(params, optimizer)
+
+mlL2_list = []
+mx_list = []
+my_list = []
+mz_list = []
+S2_list = []
+Cxx_list = []
+Czz_list = []
+C2x_list = []
+C2z_list = []
+CX_list = []
+Mx_stag_list = []
+Mx_sq_list = []
+Mx_mod_list = []
+Mz_stag_list = []
+Mz_sq_list = []
+Mz_mod_list = []
 
 if mpi_cache.rank == 0
     #Save parameters to parameter file:
@@ -78,46 +95,78 @@ if mpi_cache.rank == 0
     println("\nN_iter\t", N_iterations)
     println("δ\t\t", δ)
     close(list_of_parameters)
+
+    Z = tensor_purity(params,mpo)
+    S2 = real( -log(Z)/N )
+    mx = 0.0
+    my = 0.0
+    mz = 0.0
+    for n in 1:uc_size
+        global mx += real.( tensor_magnetization(n,params,mpo,sx) )
+        global my += real.( tensor_magnetization(n,params,mpo,sy) )
+        global mz += real.( tensor_magnetization(n,params,mpo,sz) )
+    end
+    mx/=uc_size
+    my/=uc_size
+    mz/=uc_size
+
+    Cxx = [tensor_cummulant(1, j, sx, sx, params, mpo) for j=2:params.N÷2+1]
+    Czz = [tensor_cummulant(1, j, sz, sz, params, mpo) for j=2:params.N÷2+1]
+
+    Mx_sq = ( squared_magnetization(params, mpo, sx) )^0.5
+    Mx_stag = ( squared_staggered_magnetization(params, mpo, sx) )^0.5
+    Mx_mod = ( modulated_magnetization(2π/params.N, params, mpo, sx) )^0.5
+    Mz_sq = ( squared_magnetization(params, mpo, sz) )^0.5
+    Mz_stag = ( squared_staggered_magnetization(params, mpo, sz) )^0.5
+    Mz_mod = ( modulated_magnetization(2π/params.N, params, mpo, sz) )^0.5
+
+    list_of_C = open("C.out", "a")
+    println(list_of_C, real(optimizer.optimizer_cache.mlL2)/N)
+    close(list_of_C)
+
+    list_of_obs = open("obs.out", "a")
+    println(list_of_obs, mx, ",", my, ",", mz, ",", Z, ",", S2)
+    close(list_of_obs)
+
+    list_of_obs = open("S_XX.out", "a")
+    println(list_of_obs, Mx_sq, ",", Mx_stag, ",", Mx_mod)
+    close(list_of_obs)
+
+    list_of_obs = open("S_ZZ.out", "a")
+    println(list_of_obs, Mz_sq, ",", Mz_stag, ",", Mz_mod)
+    close(list_of_obs)
+
+    list_of_obs = open("CXX.out", "a")
+    println(list_of_obs, Cxx)
+    close(list_of_obs)
+
+    list_of_obs = open("CZZ.out", "a")
+    println(list_of_obs, Czz)
+    close(list_of_obs)
 end
 
-mlL2_list = zeros(N_iterations)
-mx_list = zeros(N_iterations)
-my_list = zeros(N_iterations)
-mz_list = zeros(N_iterations)
-S2_list = zeros(N_iterations)
-Cxx_list = []
-Czz_list = []
-C2x_list = zeros(N_iterations)
-C2z_list = zeros(N_iterations)
-CX_list = zeros(N_iterations)
-Mx_stag_list = zeros(N_iterations)
-Mx_sq_list = zeros(N_iterations)
-Mx_mod_list = zeros(N_iterations)
-Mz_stag_list = zeros(N_iterations)
-Mz_sq_list = zeros(N_iterations)
-Mz_mod_list = zeros(N_iterations)
 
 
 for k in 1:N_iterations
 
+    #local_estimators = []
+    #gradients = []
+
     #Optimize MPO:
     TensorComputeGradient!(optimizer)
-    MPI_mean!(optimizer, mpi_cache)
+    #TensorComputeGradient!(optimizer, local_estimators, gradients)
+    estimators, gradients = MPI_mean!(optimizer, mpi_cache)
     if mpi_cache.rank == 0
-        Optimize!(optimizer, δ)
+        Optimize!(optimizer, δ, estimators, gradients)
+        #Optimize!(optimizer, δ, optimizer.sampler.estimators, optimizer.sampler.gradients)
+        #Optimize!(optimizer)
     end
     MPI.Bcast!(optimizer.mpo.A, 0, mpi_cache.comm)
 
     if mpi_cache.rank == 0
-        #Calculate steady-state magnetizations:
-#        mx = real.( tensor_magnetization(2,params,mpo,sx) )
-#        my = real.( tensor_magnetization(2,params,mpo,sy) )
-#        mz = real.( tensor_magnetization(2,params,mpo,sz) )
 
-        Z = real( tensor_purity(params,mpo) )
-
+        Z = tensor_purity(params,mpo)
         S2 = real( -log(Z)/N )
-
         mx=0.0
         my=0.0
         mz=0.0
@@ -130,14 +179,8 @@ for k in 1:N_iterations
         my/=uc_size
         mz/=uc_size
 
-        #Cxx = tensor_cummulant(1, 2, sx, sx, params, mpo)
-        #Czz = tensor_cummulant(1, 2, sz, sz, params, mpo)
-
         Cxx = [tensor_cummulant(1, j, sx, sx, params, mpo) for j=2:params.N÷2+1]
         Czz = [tensor_cummulant(1, j, sz, sz, params, mpo) for j=2:params.N÷2+1]
-
-        #C2x = C2(sx,sx,params,mpo)
-        #C2z = C2(sz,sz,params,mpo)
 
         Mx_sq = ( squared_magnetization(params, mpo, sx) )^0.5
         Mx_stag = ( squared_staggered_magnetization(params, mpo, sx) )^0.5
@@ -170,22 +213,19 @@ for k in 1:N_iterations
         println(list_of_obs, Czz)
         close(list_of_obs)
 
-        mlL2_list[k] = real(optimizer.optimizer_cache.mlL2)/N
-        mx_list[k] = mx
-        my_list[k] = my
-        mz_list[k] = mz
-        S2_list[k] = S2
-        Mx_sq_list[k] = Mx_sq
-        Mx_stag_list[k] = Mx_stag
-        Mx_mod_list[k] = Mx_mod
-        Mz_sq_list[k] = Mz_sq
-        Mz_stag_list[k] = Mz_stag
-        Mz_mod_list[k] = Mz_mod
+        push!(mlL2_list, real(optimizer.optimizer_cache.mlL2)/N)
+        push!(mx_list, mx)
+        push!(my_list, my)
+        push!(mz_list, mz)
+        push!(S2_list, S2)
+        push!(Mx_sq_list, Mx_sq)
+        push!(Mx_stag_list, Mx_stag)
+        push!(Mx_mod_list, Mx_mod)
+        push!(Mz_sq_list, Mz_sq)
+        push!(Mz_stag_list, Mz_stag)
+        push!(Mz_mod_list, Mz_mod)
         push!(Cxx_list, Cxx)
         push!(Czz_list, Czz)
-        #push!(C2x_list, C2x)
-        #push!(C2z_list, C2z)
-
         if mod(k,10)==0
             p = plot(mlL2_list, yscale=:log10)
             savefig(p, "mlL2.png")
@@ -209,10 +249,6 @@ for k in 1:N_iterations
             savefig(p, "Mz_stag.png")
             p = plot(Mz_mod_list)
             savefig(p, "Mz_mod.png")
-            #p = plot(C2x_list)
-            #savefig(p, "C2x.png")
-            #p = plot(C2z_list)
-            #savefig(p, "C2z.png")
             #for j=1:params.N÷2
             #    p = plot(map(v -> v[j], Cxx_list))
             #    savefig(p, "Cxx_$(j).png")

@@ -25,7 +25,7 @@ N = uc_size^2 #number of spins
 γ_d = 0
 
 #Set hyperparameters:
-χ = 10 #MPO bond dimension
+χ = 4 #MPO bond dimension
 N_MC = 1000 #number of Monte Carlo samples
 burn_in = 2 #Monte Carlo burn-in
 δ = 0.05 #step size
@@ -33,7 +33,7 @@ burn_in = 2 #Monte Carlo burn-in
 N_iterations = 1500
 ising_int="SquareIsing"
 
-params = Parameters(N,χ,Jx,Jy,J,hx,hz,γ,γ_d,α,uc_size)
+params = Parameters(N,χ,Jx,Jy,J,J,J,hx,hz,γ,γ_d,α,α,uc_size)
 
 
 #Define one-body Lindbladian operator:
@@ -55,7 +55,7 @@ l2 = reshape(l2, 4,4,4,4)
 
 
 #Save parameters to file:
-dir = "Ising_decay_chi$(χ)_N$(N)_J$(J)_hx$(hx)_hz$(hz)_γ$(γ)"
+dir = "l_Ising_decay_chi$(χ)_N$(N)_J$(J)_hx$(hx)_hz$(hz)_γ$(γ)"
 
 if mpi_cache.rank == 0
     if isdir(dir)==true
@@ -83,7 +83,7 @@ mpo = MPO(A_init)
 sampler = MetropolisSampler(N_MC, burn_in)
 optimizer = TDVP_H(sampler, mpo, l1, l2, ϵ, params)
 #optimizer = TDVP(sampler, mpo, l1, ϵ, params, ising_int)
-normalize_MPO!(params, optimizer)
+NormalizeMPO!(params, optimizer)
 
 """
 if mpi_cache.rank == 0
