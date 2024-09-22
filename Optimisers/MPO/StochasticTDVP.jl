@@ -44,7 +44,7 @@ function Reconfigure!(optimizer::TDVP{T}) where {T<:Complex{<:AbstractFloat}} #.
     data.S./=N_MC
     data.avg_G./=N_MC
     conj_avg_G = conj(data.avg_G)
-    data.S-=data.avg_G*transpose(conj_avg_G)  ### WARNING: MAY NOT BE CORRECT !!!
+    data.S-=data.avg_G*transpose(conj_avg_G)
 
     #Regularize the metric tensor:
     data.S+=ϵ*Matrix{Int}(I, size(data.S))
@@ -54,14 +54,12 @@ function Reconfigure!(optimizer::TDVP{T}) where {T<:Complex{<:AbstractFloat}} #.
     flat_grad = reshape(grad,prod(size(grad)))
     flat_grad = inv(data.S)*flat_grad
 
-    ### NEED TO CONVERT ARRAY INTO VECTOR(ARRAY)
-
     data.∇ = reshape(flat_grad,size(data.∇))
 end
 
-function f_variance(V, local_estimators, gggradients, params)
-    ggradients = [gggradients[i, :, :, :, :] for i in 1:size(gggradients, 1)]
-    gradients = [reshape(ggradients[i], (1,4*params.χ^2))*V for i in 1:length(ggradients)]
+function f_variance(V, local_estimators, arr_gradients, params)
+    vec_gradients = [arr_gradients[i, :, :, :, :] for i in 1:size(arr_gradients, 1)]
+    gradients = [reshape(vec_gradients[i], (1,4*params.χ^2))*V for i in 1:length(vec_gradients)]
     mean_gradient = mean(gradients)
     mean_local_estimator = mean(local_estimators)
     f_var = similar(gradients[1])
@@ -83,7 +81,7 @@ function f_variance(V, local_estimators, gggradients, params)
     return f_var, conj.(diff).*diff
 end
 
-function Reconfigure!(optimizer::TDVP{T}, local_estimators, gradients) where {T<:Complex{<:AbstractFloat}} #... the gradient tensor
+function Reconfigure!(optimizer::TDVP{T}, local_estimators::Array{T}, gradients::Array{T,5}) where {T<:Complex{<:AbstractFloat}} #... the gradient tensor
     data = optimizer.optimizer_cache
     N_MC = optimizer.sampler.N_MC
     params = optimizer.params
