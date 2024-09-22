@@ -1,4 +1,4 @@
-export tensor_magnetization, tensor_purity, tensor_correlation, tensor_cummulant, C2, squared_magnetization, squared_staggered_magnetization, modulated_magnetization
+export tensor_magnetization, tensor_purity, tensor_correlation, tensor_cummulant, C2, squared_magnetization, squared_staggered_magnetization, modulated_magnetization, Nagy_structure_factor
 
 """
 function test_mx(ρ0, params::Parameters, mpo::MPO{ComplexF64}, op::Array{ComplexF64})
@@ -120,4 +120,16 @@ function modulated_magnetization(phase::Float64, params::Parameters, mpo::MPO{Co
         end
     end
     return abs( real( m / (params.N^2) ) )
+end
+
+function Nagy_structure_factor(phase::Float64, params::Parameters, mpo::MPO{ComplexF64}, op::Array{ComplexF64})
+    m::ComplexF64 = 0
+    for i in 1:params.N
+        for j in 1:params.N
+            if i != j
+                m += exp(1im*phase*(j-i)) * tensor_correlation(i, j, op, op, params, mpo)
+            end
+        end
+    end
+    return abs( real( m / (params.N*(params.N-1)) ) )
 end
