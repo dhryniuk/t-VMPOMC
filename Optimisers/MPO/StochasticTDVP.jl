@@ -188,7 +188,7 @@ function MPI_mean!(optimizer::TDVP{T}, mpi_cache) where {T<:Complex{<:AbstractFl
     end
     MPI.Gather!(loc_gradients, concat_gradients, 0, comm)
 
-    return received_estimators, concat_gradients
+    return concat_estimators, concat_gradients
 end
 
 function TensorSweepLindblad!(sample::Projector, ρ_sample::T, optimizer::TDVPl1{T}) where {T<:Complex{<:AbstractFloat}} 
