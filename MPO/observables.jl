@@ -1,13 +1,5 @@
 export tensor_magnetization, tensor_purity, tensor_correlation, tensor_cummulant, C2, squared_magnetization, squared_staggered_magnetization, modulated_magnetization, Nagy_structure_factor
 
-"""
-function test_mx(ρ0, params::Parameters, mpo::MPO{ComplexF64}, op::Array{ComplexF64})
-    A = mpo.A
-    B = zeros(ComplexF64,params.χ,params.χ)
-    A_reshaped = reshape(A[n,:,:,:],params.χ,params.χ,2,2)
-    @tensor B[a,b] := A[a,b,c,d]*ρ0[]
-end
-"""
 
 function tensor_magnetization(site, params::Parameters, mpo::MPO{ComplexF64}, op::Array{ComplexF64})
     A = mpo.A
@@ -60,6 +52,23 @@ function tensor_correlation(site1::Int64, site2::Int64, op1::Array{ComplexF64}, 
         end
     end
     return real( @tensor B[a,a] )
+end
+
+export nn_tensor_correlation_2D
+
+function nn_tensor_correlation_2D(op1::Array{ComplexF64}, params::Parameters, mpo::MPO{ComplexF64})
+    A = mpo.A
+    B = zeros(ComplexF64,params.χ,params.χ)
+    B += diagm(ones(params.χ))
+    site0 = 1      
+    site1 = 2      
+    site2 = params.uc_size + 1     
+    sites = [site1,site2]
+    corr = 0.0
+    for site in sites
+        corr += 2*tensor_correlation(site0, site, op1, op1, params, mpo)
+    end
+    return corr
 end
 
 function tensor_cummulant(site1::Int64, site2::Int64, op1::Array{ComplexF64}, op2::Array{ComplexF64}, params::Parameters, mpo::MPO{ComplexF64})

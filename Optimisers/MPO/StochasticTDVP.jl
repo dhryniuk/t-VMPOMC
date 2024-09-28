@@ -59,7 +59,7 @@ end
 
 function f_variance(V, local_estimators, arr_gradients, params)
     vec_gradients = [arr_gradients[i, :, :, :, :] for i in 1:size(arr_gradients, 1)]
-    gradients = [reshape(vec_gradients[i], (1,4*params.χ^2))*V for i in 1:length(vec_gradients)]
+    gradients = [reshape(vec_gradients[i], (1,4*params.χ^2*params.uc_size))*V for i in 1:length(vec_gradients)]
     mean_gradient = mean(gradients)
     mean_local_estimator = mean(local_estimators)
     f_var = similar(gradients[1])
@@ -104,7 +104,7 @@ function Reconfigure!(optimizer::TDVP{T}, local_estimators::Array{T}, gradients:
     if optimizer.ϵ_SNR!=0.0
         f_var, diff = f_variance(V, local_estimators, gradients, params)
         SNR = sqrt.(diff)./sqrt.(f_var./N_MC)
-        σ_inv = ( (σ).*reshape((1 .+ (optimizer.ϵ_SNR./SNR).^1), 4*params.χ^2) ).^(-1.0)
+        σ_inv = ( (σ).*reshape((1 .+ (optimizer.ϵ_SNR./SNR).^1), 4*params.χ^2*params.uc_size) ).^(-1.0)
         flat_grad = V*diagm(σ_inv)*flat_grad
     end
     #cutoff = 10^(-8)
@@ -217,9 +217,6 @@ function TensorSweepLindblad!(sample::Projector, ρ_sample::T, optimizer::TDVPl2
     liouvillian = optimizer.l1
     liouvillian_2 = optimizer.l2
 
-    #println("HERE")
-    #sleep(1)
-
     reduced_density_matrix = copy(optimizer.mpo)
     @tensor reduced_density_matrix.A[n,a,b,c] := liouvillian[c,d]*reduced_density_matrix.A[n,a,b,d]
 
@@ -247,6 +244,7 @@ function TensorSweepLindblad!(sample::Projector, ρ_sample::T, optimizer::TDVPl2
         temp_local_L += tr(ws.loc_2)
     end
 
+    #"""
     ws.loc_1 = ws.L_set[1]
     ws.loc_2 = deepcopy(ws.loc_1)
     for i in 2:params.N-1
@@ -257,6 +255,7 @@ function TensorSweepLindblad!(sample::Projector, ρ_sample::T, optimizer::TDVPl2
     n = mod1(params.N, params.uc_size)
     mul!(ws.loc_1, @view(reduced_density_matrices[n,:,:,dINDEX[(sample.ket[params.N],sample.bra[params.N])],dINDEX[(sample.ket[1],sample.bra[1])]]), ws.loc_2)
     temp_local_L += tr(ws.loc_1)
+    #"""
 
     temp_local_L /= ρ_sample
 
@@ -431,7 +430,7 @@ function TensorUpdate!(optimizer::TDVP{T}, sample::Projector, n::UInt64) where {
     l_int = IsingInteractionEnergy(optimizer.ising_op, sample, optimizer)
 
     local_L += local_L_int
-    #local_L += l_int
+    local_L += l_int
 
     #Update joint ensemble average:
     data.L∂L.+=local_L*conj(ws.Δ)

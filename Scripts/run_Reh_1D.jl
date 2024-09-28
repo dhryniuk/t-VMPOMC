@@ -12,8 +12,8 @@ using JLD
 mpi_cache = set_mpi()
 
 #Set parameters:
-Jx= 2.0 #interaction strength
-Jy= 0.0 #interaction strength
+Jx= 0.8 #interaction strength
+Jy= 0.9 #interaction strength
 Jz= 1.0 #interaction strength
 J1= 0.0 #interaction strength
 J2= 0.0 #interaction strength

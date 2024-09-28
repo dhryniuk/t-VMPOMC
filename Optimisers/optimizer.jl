@@ -148,6 +148,7 @@ mutable struct TDVP_H{T<:Complex{<:AbstractFloat}} <: TDVP{T}
     #Parameters:
     params::Parameters
     ϵ::Float64
+    ϵ_SNR::Float64
 
     #Workspace:
     workspace::Workspace{T}#Union{workspace,Nothing}
@@ -156,8 +157,8 @@ end
 
 export TDVP_H
 
-function TDVP_H(sampler::MetropolisSampler, mpo::MPO{T}, l1::Matrix{T}, l2::Array{T}, ϵ::Float64, params::Parameters) where {T<:Complex{<:AbstractFloat}} 
-    optimizer = TDVP_H(mpo, sampler, TDVPCache(mpo.A, params), l1, l2, SquareIsing(), LocalDephasing(), params, ϵ, set_workspace(mpo.A, params))
+function TDVP_H(sampler::MetropolisSampler, mpo::MPO{T}, l1::Matrix{T}, l2::Array{T}, ϵ::Float64, ϵ_SNR::Float64, params::Parameters) where {T<:Complex{<:AbstractFloat}} 
+    optimizer = TDVP_H(mpo, sampler, TDVPCache(mpo.A, params), l1, l2, SquareIsing(), LocalDephasing(), params, ϵ, ϵ_SNR, set_workspace(mpo.A, params))
     return optimizer
 end
 
