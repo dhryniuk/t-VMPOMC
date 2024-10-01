@@ -22,6 +22,13 @@ struct CompetingIsing <: IsingInteraction
     Kac_norm2::Float64
 end
 
+struct CompetingSquareIsing <: IsingInteraction
+    α1::Float64
+    Kac_norm1::Float64
+    α2::Float64
+    Kac_norm2::Float64
+end
+
 function HarmonicNumber(n::Int,α::Float64)
     h=0
     for i in 1:n
@@ -51,6 +58,14 @@ function CompetingIsing(params::Parameters)
     α2 = params.α2
     K2 = Kac_norm(params.N, params.α2)
     return CompetingIsing(α1,K1,α2,K2)
+end
+
+function CompetingSquareIsing(params::Parameters)
+    α1 = params.α1
+    K1 = Kac_norm(params.N, params.α1)
+    α2 = params.α2
+    K2 = Kac_norm(params.N, params.α2)
+    return CompetingSquareIsing(α1,K1,α2,K2)
 end
 
 abstract type Dephasing <: DiagonalOperators end

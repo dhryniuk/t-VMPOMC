@@ -93,6 +93,50 @@ function IsingInteractionEnergy(ising_op::SquareIsing, sample::Projector, optimi
     return -1.0im*params.J1*l_int
 end
 
+#"""
+function IsingInteractionEnergy(ising_op::CompetingSquareIsing, sample::Projector, optimizer::Optimizer{T}) where {T<:Complex{<:AbstractFloat}} 
+    A = optimizer.mpo.A
+    params = optimizer.params
+    L = isqrt(params.N)
+
+    l_int_1::T = 0
+    l_int_2::T = 0
+    for k1::Int64 in 0:L-1
+        for j1::Int64 in 1:L
+            for k2::Int64 in 0:L-1
+                for j2::Int64 in 1:L
+                    # To avoid double counting, only consider pairs where (k2, j2) comes after (k1, j1)
+                    if (k2 > k1) || (k2 == k1 && j2 > j1)
+                        # Compute distance between (j1, k1) and (j2, k2) on the torus (periodic boundary conditions)
+                        dx = min(abs(j1 - j2), L - abs(j1 - j2))  # Minimum distance in x-direction
+                        dy = min(abs(k1 - k2), L - abs(k1 - k2))  # Minimum distance in y-direction
+                        r = sqrt(dx^2 + dy^2)  # Euclidean distance on the torus
+
+                        #println("(",k1,j1,") (",k2,j2,"): ", r)
+                        #sleep(1)
+
+                        # Skip interaction if r is 0 (shouldn't happen due to (j1, k1) != (j2, k2) condition)
+                        if r > 0
+                            # Horizontal contribution
+                            l_int_ket = (2*sample.ket[j1+k1*L] - 1) * (2*sample.ket[j2+k2*L] - 1)
+                            l_int_bra = (2*sample.bra[j1+k1*L] - 1) * (2*sample.bra[j2+k2*L] - 1)
+
+                            # Add long-range interaction term with decay r^(-alpha)
+                            l_int_1 += (l_int_ket - l_int_bra) / r^ising_op.α1
+                            l_int_2 += (l_int_ket - l_int_bra) / r^ising_op.α2
+                        end
+                    end
+                end
+            end
+        end
+    end
+
+    #error()
+
+    return -1.0im * ( params.J1 * l_int_1 + params.J2 * l_int_2 )
+end
+#"""
+
 function IsingInteractionEnergy(ising_op::TriangularIsing, sample::Projector, optimizer::Optimizer{T}) where {T<:Complex{<:AbstractFloat}} 
     A = optimizer.mpo.A
     params = optimizer.params

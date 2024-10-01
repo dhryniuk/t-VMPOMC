@@ -68,7 +68,7 @@ function nn_tensor_correlation_2D(op1::Array{ComplexF64}, params::Parameters, mp
     for site in sites
         corr += 2*tensor_correlation(site0, site, op1, op1, params, mpo)
     end
-    return corr
+    return corr/4
 end
 
 function tensor_cummulant(site1::Int64, site2::Int64, op1::Array{ComplexF64}, op2::Array{ComplexF64}, params::Parameters, mpo::MPO{ComplexF64})
@@ -130,6 +130,87 @@ function modulated_magnetization(phase::Float64, params::Parameters, mpo::MPO{Co
     end
     return abs( real( m / (params.N^2) ) )
 end
+
+export modulated_magnetization_TI
+
+function modulated_magnetization_TI(q::Number, params::Parameters, mpo::MPO{ComplexF64}, op::Array{ComplexF64})
+    m::ComplexF64 = 0
+    for i in 1:1
+        for j in 1:params.N
+            if i == j
+                m += tensor_magnetization(i, params, mpo, id)
+            else
+                m += exp(1im*q*(j-i)) * tensor_correlation(i, j, op, op, params, mpo)
+            end
+        end
+    end
+    return abs(real(m/params.N))
+end
+
+function modulated_magnetization_TI(qx::Number, qy::Number, params::Parameters, mpo::MPO{ComplexF64}, op::Array{ComplexF64})
+    L = isqrt(params.N) # Assuming a square lattice with LxL sites
+    S_q::ComplexF64 = 0
+
+    # Loop over all lattice points using linear indices
+    for i in 1:L^2
+        for j in 1:L^2
+            # Calculate 2D coordinates from linear indices
+            i_x, i_y = divrem(i-1, L) .+ 1
+            j_x, j_y = divrem(j-1, L) .+ 1
+
+            if i == j
+                S_q += tensor_magnetization(i, params, mpo, id)
+            else
+                # Phase factor for 2D: depends on the relative positions (i_x, i_y) and (j_x, j_y)
+                delta_x = j_x - i_x
+                delta_y = j_y - i_y
+                
+                # Apply phase modulation
+                phase_factor = exp(1im * (qx*delta_x + qy*delta_y))
+                S_q += phase_factor * tensor_correlation(i, j, op, op, params, mpo)
+            end
+        end
+    end
+
+    #println(real(S_q))
+    #sleep(2)
+    #error()
+
+    return real(S_q)/L^4
+end
+
+#=
+function old_modulated_magnetization_TI(qx::Number, qy::Number,  params::Parameters, mpo::MPO{ComplexF64}, op::Array{ComplexF64})
+    L = isqrt(params.N)  # Assuming a square lattice with LxL sites
+    m::ComplexF64 = 0
+
+    # Loop over all lattice points (i_x, i_y) and (j_x, j_y)
+    for i_x in 1:1#L
+        for i_y in 1:1#L
+            i = (i_x - 1) * L + i_y  # Linear index for the ith site
+
+            for j_x in 1:L
+                for j_y in 1:L
+                    j = (j_x - 1) * L + j_y  # Linear index for the jth site
+                    if i == j
+                        m += tensor_magnetization(i, params, mpo, id)
+                    else
+                        # Phase factor for 2D: depends on the relative positions (i_x, i_y) and (j_x, j_y)
+                        delta_x = j_x - i_x
+                        delta_y = j_y - i_y
+
+                        # Apply phase modulation
+                        phase_factor = exp(1im * (qx*delta_x + qy*delta_y))
+                        m += phase_factor * tensor_correlation(i, j, op, op, params, mpo)
+                    end
+                end
+            end
+        end
+    end
+
+    return abs(real(m/params.N))
+end
+=#
 
 function Nagy_structure_factor(phase::Float64, params::Parameters, mpo::MPO{ComplexF64}, op::Array{ComplexF64})
     m::ComplexF64 = 0

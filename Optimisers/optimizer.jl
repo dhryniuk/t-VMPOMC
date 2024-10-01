@@ -74,6 +74,8 @@ function TDVP(sampler::MetropolisSampler, mpo::MPO{T}, l1::Matrix{T}, ϵ::Float6
         optimizer = TDVPl1(mpo, sampler, TDVPCache(mpo.A, params), l1, LongRangeIsing(params), LocalDephasing(), params, ϵ, ϵ_SNR, set_workspace(mpo.A, params))
     elseif ising_int=="SquareIsing"
         optimizer = TDVPl1(mpo, sampler, TDVPCache(mpo.A, params), l1, SquareIsing(), LocalDephasing(), params, ϵ, ϵ_SNR, set_workspace(mpo.A, params))
+    elseif ising_int=="CompetingSquareIsing"
+        optimizer = TDVPl1(mpo, sampler, TDVPCache(mpo.A, params), l1, CompetingSquareIsing(params), LocalDephasing(), params, ϵ, ϵ_SNR, set_workspace(mpo.A, params))
     elseif ising_int=="TriangularIsing"
         optimizer = TDVPl1(mpo, sampler, TDVPCache(mpo.A, params), l1, TriangularIsing(), LocalDephasing(), params, ϵ, ϵ_SNR, set_workspace(mpo.A, params))
     elseif ising_int=="CompetingIsing"

@@ -27,11 +27,25 @@ function UpdateSR!(optimizer::TDVP{T}) where {T<:Complex{<:AbstractFloat}}
     ws = optimizer.workspace
     
     G::Vector{T} = reshape(ws.Δ,params.uc_size*4*params.χ^2)
+    #conj_G = conj(G)
+    avg_G .+= G
+    #BLAS.herk!('U', 'N', 1.0, transpose(G), 1.0, ws.plus_S) 
+    mul!(ws.plus_S,conj.(G),transpose(G)) ### VERY EXPENSIVE
+    BLAS.axpy!(1.0, ws.plus_S, S)
+    #@inbounds S .+= ws.plus_S ### MOST EXPENSIVE
+end
+
+function old_UpdateSR!(optimizer::TDVP{T}) where {T<:Complex{<:AbstractFloat}}
+    S::Array{T,2} = optimizer.optimizer_cache.S
+    avg_G::Vector{T} = optimizer.optimizer_cache.avg_G
+    params::Parameters = optimizer.params
+    ws = optimizer.workspace
+    
+    G::Vector{T} = reshape(ws.Δ,params.uc_size*4*params.χ^2)
     conj_G = conj(G)
     avg_G .+= G
-    mul!(ws.plus_S,conj_G,transpose(G))
-    #mul!(ws.plus_S,G,transpose(conj_G))
-    S .+= ws.plus_S 
+    mul!(ws.plus_S,conj_G,transpose(G)) ### VERY EXPENSIVE
+    @inbounds S .+= ws.plus_S ### MOST EXPENSIVE
 end
 
 function Reconfigure!(optimizer::TDVP{T}) where {T<:Complex{<:AbstractFloat}} #... the gradient tensor
