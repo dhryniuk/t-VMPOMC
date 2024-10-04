@@ -37,7 +37,11 @@ include("Optimisers/optimizer.jl")
 
 #Optimizer routines:
 
-include("Optimisers/MPO/StochasticTDVP.jl")
+#include("Optimisers/MPO/StochasticTDVP.jl")
+include("Optimisers/MPO/StochasticTDVP/TensorSweep.jl")
+include("Optimisers/MPO/StochasticTDVP/Reconfigure.jl")
+include("Optimisers/MPO/StochasticTDVP/TDVPTensor.jl")
+include("Optimisers/MPO/StochasticTDVP/Integrators.jl")
 #include("Optimisers/MPO/ExactTDVP.jl")
 include("Optimisers/MPO/IsingInteractions.jl")
 

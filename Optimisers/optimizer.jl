@@ -65,6 +65,15 @@ mutable struct TDVPl1{T<:Complex{<:AbstractFloat}} <: TDVP{T}
 
 end
 
+function Base.copy(opt::TDVPl1)
+    return TDVPl1(opt.mpo, opt.sampler, opt.optimizer_cache, opt.l1, opt.ising_op, opt.dephasing_op, opt.params, opt.ϵ, opt.ϵ_SNR, opt.workspace)
+end
+
+function Base.copy(opt::TDVPl1, N_MC_H::Int64)
+    Heun_sampler = MetropolisSampler(N_MC_H, opt.sampler.N_MC_Heun, 0, opt.params) 
+    return TDVPl1(opt.mpo, Heun_sampler, opt.optimizer_cache, opt.l1, opt.ising_op, opt.dephasing_op, opt.params, opt.ϵ, opt.ϵ_SNR, opt.workspace)
+end
+
 export TDVP
 
 function TDVP(sampler::MetropolisSampler, mpo::MPO{T}, l1::Matrix{T}, ϵ::Float64, ϵ_SNR::Float64, params::Parameters, ising_int::String) where {T<:Complex{<:AbstractFloat}} 

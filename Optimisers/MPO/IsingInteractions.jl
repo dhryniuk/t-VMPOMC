@@ -50,7 +50,7 @@ function IsingInteractionEnergy(ising_op::CompetingIsing, sample::Projector, opt
             l_int += (l_int_ket-l_int_bra)/dist
         end
     end
-    ie += -1.0im*params.J1*l_int/ising_op.Kac_norm1
+    ie += -1.0im*params.J1*l_int#/ising_op.Kac_norm1
 
     l_int_ket = 0.0
     l_int_bra = 0.0
@@ -63,7 +63,7 @@ function IsingInteractionEnergy(ising_op::CompetingIsing, sample::Projector, opt
             l_int += (l_int_ket-l_int_bra)/dist
         end
     end
-    ie += -1.0im*params.J2*l_int/ising_op.Kac_norm2
+    ie += -1.0im*params.J2*l_int#/ising_op.Kac_norm2
 
     return ie
 end
@@ -94,7 +94,40 @@ function IsingInteractionEnergy(ising_op::SquareIsing, sample::Projector, optimi
 end
 
 #"""
-function IsingInteractionEnergy(ising_op::CompetingSquareIsing, sample::Projector, optimizer::Optimizer{T}) where {T<:Complex{<:AbstractFloat}} 
+function IsingInteractionEnergy(ising_op::CompetingSquareIsing, sample::Projector, optimizer::Optimizer{T}) where {T<:Complex{<:AbstractFloat}}
+    A = optimizer.mpo.A
+    params = optimizer.params
+    N = params.N
+    L = isqrt(N)
+
+    l_int_1::T = 0
+    l_int_2::T = 0
+
+    for i::Int64 in 1:N
+        for j::Int64 in i+1:N
+            # Compute x and y coordinates from i and j
+            x1, y1 = divrem(i-1, L)
+            x2, y2 = divrem(j-1, L)
+
+            # Compute distance between (x1, y1) and (x2, y2) on the torus (periodic boundary conditions)
+            dx = min(abs(x1 - x2), L - abs(x1 - x2))  # Minimum distance in x-direction
+            dy = min(abs(y1 - y2), L - abs(y1 - y2))  # Minimum distance in y-direction
+            r = sqrt(dx^2 + dy^2)  # Euclidean distance on the torus
+
+            # Contribution
+            l_int_ket = (2 * sample.ket[i] - 1) * (2 * sample.ket[j] - 1)
+            l_int_bra = (2 * sample.bra[i] - 1) * (2 * sample.bra[j] - 1)
+
+            # Add long-range interaction term with decay r^(-alpha)
+            l_int_1 += (l_int_ket - l_int_bra) / r^ising_op.α1
+            l_int_2 += (l_int_ket - l_int_bra) / r^ising_op.α2
+        end
+    end
+
+    return -1.0im * (params.J1 * l_int_1 + params.J2 * l_int_2)
+end
+
+function oldIsingInteractionEnergy(ising_op::CompetingSquareIsing, sample::Projector, optimizer::Optimizer{T}) where {T<:Complex{<:AbstractFloat}} 
     A = optimizer.mpo.A
     params = optimizer.params
     L = isqrt(params.N)
