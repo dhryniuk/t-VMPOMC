@@ -7,6 +7,21 @@ function Initialize!(optimizer::TDVP{T}) where {T<:Complex{<:AbstractFloat}}
     optimizer.workspace = set_workspace(optimizer.mpo.A, optimizer.params)
 end
 
+function NormalizeMPO!(optimizer::TDVP{T}) where {T<:Complex{<:AbstractFloat}} 
+    params = optimizer.params
+    A = optimizer.mpo.A
+    ws = optimizer.workspace
+    
+    _MPO = ws.ID
+    for i in 1:params.N
+        n = mod1(i,params.uc_size)
+        _MPO*=(A[n,:,:,1]+A[n,:,:,4])
+    end
+    trMPO = tr(_MPO)^(1/params.N)
+    A./=trMPO
+    optimizer.mpo.A = A
+end
+
 function NormalizeMPO!(params::Parameters, optimizer::TDVP{T}) where {T<:Complex{<:AbstractFloat}} 
     A = optimizer.mpo.A
     ws = optimizer.workspace
@@ -44,23 +59,6 @@ function Finalize!(optimizer::TDVP{T}) where {T<:Complex{<:AbstractFloat}}
     data.mlL /= N_MC
     data.mlL2 /= N_MC
     data.ΔLL .*= data.mlL
-end
-
-function Optimize!(optimizer::TDVP{T}, δ::Float64, estimators, gradients) where {T<:Complex{<:AbstractFloat}}
-    A = optimizer.mpo.A
-
-    Finalize!(optimizer)
-#    Reconfigure!(optimizer, optimizer.sampler.estimators, optimizer.sampler.gradients)
-    Reconfigure!(optimizer, estimators, gradients)
-
-    ∇  = optimizer.optimizer_cache.∇
-
-    new_A = similar(A)
-    new_A = A + δ*∇
-    A = new_A
-    optimizer.mpo.A = A
-    
-    NormalizeMPO!(optimizer.params, optimizer)
 end
 
 function MPI_mean!(optimizer::TDVP{T}, mpi_cache) where {T<:Complex{<:AbstractFloat}}
@@ -103,7 +101,6 @@ function MPI_mean!(optimizer::TDVP{T}, mpi_cache) where {T<:Complex{<:AbstractFl
 
     loc_gradients = optimizer.sampler.gradients 
     if rank == 0
-        #concat_gradients = zeros(T, optimizer.sampler.N_MC* nworkers, params.uc_size, params.χ, params.χ, 4)
         concat_gradients = zeros(T, nworkers*optimizer.sampler.N_MC, params.uc_size*params.χ*params.χ*4)
     else
         concat_gradients = Vector{T}(undef, 0)
@@ -149,7 +146,6 @@ function TensorUpdate!(optimizer::TDVP{T}, sample::Projector, n::Int64) where {T
     data.mlL2 += abs2(local_L)
 
     optimizer.sampler.estimators[n] = copy(local_L)
-    #optimizer.sampler.gradients[n,:,:,:,:] = deepcopy(ws.Δ)
     optimizer.sampler.gradients[n,:] = reshape(ws.Δ,4*params.χ^2*params.uc_size)
 end
 
@@ -167,7 +163,7 @@ function TensorComputeGradient!(optimizer::TDVP{T}) where {T<:Complex{<:Abstract
 
         #Compute local estimators:
         #TensorUpdate!(optimizer, sample) 
-        TensorUpdate!(optimizer, sample, n)#local_estimators, gradients) 
+        TensorUpdate!(optimizer, sample, n)
 
         #Update metric tensor:
         UpdateSR!(optimizer)

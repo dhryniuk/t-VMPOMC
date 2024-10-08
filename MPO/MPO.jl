@@ -13,7 +13,7 @@ function Base.similar(mpo::MPO)
     return MPO(similar(mpo.A))
 end
 
-function Base.copy(mpo::MPO)
+function Base.deepcopy(mpo::MPO)
     return MPO(deepcopy(mpo.A))
 end
 

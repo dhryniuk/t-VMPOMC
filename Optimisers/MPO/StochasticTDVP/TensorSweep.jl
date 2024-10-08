@@ -3,7 +3,7 @@ function TensorSweepLindblad!(sample::Projector, ρ_sample::T, optimizer::TDVPl1
     ws = optimizer.workspace
     liouvillian = optimizer.l1
 
-    reduced_density_matrix::MPO{T} = copy(optimizer.mpo)
+    reduced_density_matrix::MPO{T} = deepcopy(optimizer.mpo)
     @tensor reduced_density_matrix.A[n,a,b,c] := liouvillian[c,d]*reduced_density_matrix.A[n,a,b,d]
 
     temp_local_L::T = 0
@@ -24,7 +24,7 @@ function TensorSweepLindblad!(sample::Projector, ρ_sample::T, optimizer::TDVPl2
     liouvillian = optimizer.l1
     liouvillian_2 = optimizer.l2
 
-    reduced_density_matrix = copy(optimizer.mpo)
+    reduced_density_matrix = deepcopy(optimizer.mpo)
     @tensor reduced_density_matrix.A[n,a,b,c] := liouvillian[c,d]*reduced_density_matrix.A[n,a,b,d]
 
     temp_local_L::T = 0
@@ -77,7 +77,7 @@ function TensorSweepLindblad!(sample::Projector, ρ_sample::T, optimizer::TDVP_H
     liouvillian_2 = reshape(optimizer.l2, 4*4,4*4)
 
     # ONE-BODY TERMS:
-    reduced_density_matrix = copy(optimizer.mpo)
+    reduced_density_matrix = deepcopy(optimizer.mpo)
     @tensor reduced_density_matrix.A[n,a,b,c] := liouvillian[c,d]*reduced_density_matrix.A[n,a,b,d]
     temp_local_L::T = 0
     for j in 1:params.N

@@ -44,6 +44,7 @@ include("Optimisers/MPO/StochasticTDVP/TDVPTensor.jl")
 include("Optimisers/MPO/StochasticTDVP/Integrators.jl")
 #include("Optimisers/MPO/ExactTDVP.jl")
 include("Optimisers/MPO/IsingInteractions.jl")
+include("Optimisers/MPO/InitialCondition.jl")
 
 
 include("Samplers/MPO_Metropolis.jl")
