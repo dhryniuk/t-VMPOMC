@@ -17,7 +17,7 @@ Jx= 0.0 #interaction strength
 Jy= 0.0 #interaction strength
 Jz= 0.0 #interaction strength
 J1= 1.0 #interaction strength
-J2= parse(Float64,ARGS[10]) #interaction strength
+J2= parse(Float64,ARGS[9]) #interaction strength
 hx= 2.0 #transverse field strength
 hz= 0.0 #longitudinal field strength
 γ = 1.0 #spin decay rate
@@ -30,21 +30,21 @@ N = parse(Int64,ARGS[1]) #number of spins
 χ = parse(Int64,ARGS[2]) #MPO bond dimension
 uc_size = parse(Int64,ARGS[3])
 N_MC = parse(Int64,ARGS[4]) #number of Monte Carlo samples
-N_MC_Heun =  parse(Int64,ARGS[5])
 burn_in = 2 #Monte Carlo burn-in
-T = parse(Float64,ARGS[6])
-ϵ_shift = parse(Float64,ARGS[7])
-ϵ_SNR = parse(Float64,ARGS[8])
-ϵ_Heun = parse(Float64,ARGS[9])
+T = parse(Float64,ARGS[5])
+ϵ_shift = parse(Float64,ARGS[6])
+ϵ_SNR = parse(Float64,ARGS[7])
+ϵ_tol = parse(Float64,ARGS[8])
 ising_int="CompetingIsing"
 τ = 10^(-6)#0.001#10^(-8)
-#τ = 0.001
+#τ = 0.01
 
 params = Parameters(N,χ,Jx,Jy,Jz,J1,J2,hx,hz,γ,γ_d,α1,α2,uc_size)
 
 #Define one-body Lindbladian operator:
 
 l1 = make_one_body_Lindbladian(hx*sx+hz*sz, sqrt(γ)*sm)
+###=
 #Save parameters to file:
 dir = "results/1D_Ising_uc$(uc_size)_chi$(χ)_N$(N)_J1$(J1)_α1$(α1)_J2$(J2)_α2$(α2)_hx$(hx)_hz$(hz)_γ$(γ)"
 if mpi_cache.rank == 0
@@ -54,12 +54,13 @@ if mpi_cache.rank == 0
     mkdir(dir)
     cd(dir)
 end
+##=#
 
 mpo = MPO("z", params, mpi_cache)
 
 #Define sampler and optimizer:
-sampler = MetropolisSampler(N_MC, N_MC_Heun, burn_in, params)
-optimizer = TDVP(sampler, mpo, l1, τ, ϵ_shift, ϵ_SNR, ϵ_Heun, params, ising_int)
+sampler = MetropolisSampler(N_MC, burn_in, params)
+optimizer = TDVP(sampler, mpo, l1, τ, ϵ_shift, ϵ_SNR, ϵ_tol, params, ising_int)
 NormalizeMPO!(params, optimizer)
 
 mlL2_list = []
@@ -76,6 +77,7 @@ Mzz_mod_list = []
 times_list = [0.0]
 
 if mpi_cache.rank == 0
+    #=
     #Save parameters to parameter file:
     list_of_parameters = open("Ising_decay.params", "w")
     redirect_stdout(list_of_parameters)
@@ -84,6 +86,7 @@ if mpi_cache.rank == 0
     #display(optimizer)
     #println("\nN_iter\t", N_iterations)
     close(list_of_parameters)
+    =#
 
     Z = real( tensor_purity(params,mpo) )
     S2 = real( -log(Z)/N )
@@ -141,11 +144,35 @@ end
 
 
 k = 0
+optimizer.τ = τ
+display(τ)
+display(optimizer.τ)
+#error()
+
+display(optimizer.mpo.A)
+
 while times_list[end]<T
 
     global k+=1
 
-    working_AdaptiveHeunStep!(optimizer, mpi_cache)
+    #AdaptiveHeunStep!(optimizer, mpi_cache)
+    AdaptiveHeunStep!(optimizer, mpi_cache)
+    #optimizer.τ = τ
+    #global _, optimizer = HeunIntegrate!(optimizer.mpo.A, optimizer.τ, optimizer, mpi_cache)
+
+    #global _, optimizer = HeunIntegrate!(optimizer.mpo.A, optimizer.τ/2, optimizer, mpi_cache)
+    #global _, optimizer = HeunIntegrate!(optimizer.mpo.A, optimizer.τ/2, optimizer, mpi_cache)
+
+
+    #display(optimizer.mpo.A)
+    #sleep(5)
+
+    #error()
+
+
+    #global _, optimizer = HeunIntegrate!(optimizer.mpo.A, optimizer.τ, optimizer, mpi_cache)
+    #global _, optimizer = HeunIntegrate!(optimizer.mpo.A, optimizer.τ, optimizer, mpi_cache)
+    #AdaptiveHeunStep!(optimizer, mpi_cache)
     #global optimizer = AdaptiveHeunStep!(optimizer, mpi_cache)
     #global optimizer = EulerStep!(optimizer, mpi_cache)
 
@@ -184,8 +211,8 @@ while times_list[end]<T
     y2, opt = HeunIntegrate!(y2, τ/2, optimizer.sampler.N_MC_Heun, opt, mpi_cache)
     
     delta = norm(y1-y2)/3
-    τ_adjusted = τ*min((optimizer.ϵ_Heun/delta)^(1/3),1.1)
-    #τ_adjusted = τ*(optimizer.ϵ_Heun/delta)^(1/3)#τ*min((optimizer.ϵ_Heun/delta)^(1/3),2)
+    τ_adjusted = τ*min((optimizer.ϵ_tol/delta)^(1/3),1.1)
+    #τ_adjusted = τ*(optimizer.ϵ_tol/delta)^(1/3)#τ*min((optimizer.ϵ_tol/delta)^(1/3),2)
     ##=#
 
     #_, new_optimizer = HeunIntegrate!(y1, τ, optimizer.sampler.N_MC, optimizer, mpi_cache)
@@ -226,7 +253,13 @@ while times_list[end]<T
         display(optimizer.τ)
         #display(τ)
 
+
+
         Z = real( tensor_purity(params,mpo) )
+        #display(Z)
+        #display(real( -log(Z)/N ))
+        #sleep(5)
+        #error()
         S2 = real( -log(Z)/N )
         mx=0.0
         my=0.0
@@ -264,6 +297,9 @@ while times_list[end]<T
         println(list_of_obs, M_sq, ",", M_stag, ",", M_mod)
         close(list_of_obs)
 
+        #display(times_list[end]+optimizer.τ)
+        #error()
+
         push!(times_list, times_list[end]+optimizer.τ)
         #push!(times_list, times_list[end]+τ/2)
         list_of_times = open("times.out", "a")
@@ -282,7 +318,7 @@ while times_list[end]<T
         push!(Mzz_mod_list, M_mod)
         
 
-        if mod(k,10)==0
+        if mod(k,1)==0
             save("optimizer.jld", "optimizer", optimizer)
 
             p = plot(times_list, mlL2_list, yscale=:log10)

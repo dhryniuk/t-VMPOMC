@@ -2,7 +2,7 @@
 
 
 function Initialize!(optimizer::TDVP{T}) where {T<:Complex{<:AbstractFloat}}
-    optimizer.sampler = MetropolisSampler(optimizer.sampler.N_MC, optimizer.sampler.N_MC_Heun, optimizer.sampler.burn, optimizer.params) # resets samples lists!
+    optimizer.sampler = MetropolisSampler(optimizer.sampler.N_MC, optimizer.sampler.burn, optimizer.params) # resets samples lists!
     optimizer.optimizer_cache = TDVPCache(optimizer.mpo.A, optimizer.params)
     optimizer.workspace = set_workspace(optimizer.mpo.A, optimizer.params)
 end

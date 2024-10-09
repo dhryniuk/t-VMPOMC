@@ -34,7 +34,7 @@ burn_in = 2 #Monte Carlo burn-in
 N_iterations = parse(Int64,ARGS[6])
 ϵ_shift = parse(Float64,ARGS[7])
 ϵ_SNR = parse(Float64,ARGS[8])
-ϵ_Heun = parse(Float64,ARGS[9])
+ϵ_tol = parse(Float64,ARGS[9])
 ising_int = "Ising"
 τ = 10^(-8)
 
@@ -61,7 +61,7 @@ mpo = MPO("y", params, mpi_cache)
 
 #Define sampler and optimizer:
 sampler = MetropolisSampler(N_MC, N_MC_Heun, burn_in, params)
-optimizer = TDVP(sampler, mpo, l1, l2, τ, ϵ_shift, ϵ_SNR, ϵ_Heun, params, ising_int)
+optimizer = TDVP(sampler, mpo, l1, l2, τ, ϵ_shift, ϵ_SNR, ϵ_tol, params, ising_int)
 NormalizeMPO!(params, optimizer)
 
 mlL2_list = []
