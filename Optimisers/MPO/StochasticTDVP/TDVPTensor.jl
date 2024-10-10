@@ -2,7 +2,7 @@
 
 
 function Initialize!(optimizer::TDVP{T}) where {T<:Complex{<:AbstractFloat}}
-    optimizer.sampler = MetropolisSampler(optimizer.sampler.N_MC, optimizer.sampler.burn, optimizer.params) # resets samples lists!
+    optimizer.sampler = MetropolisSampler(optimizer.sampler.N_MC, optimizer.sampler.burn, optimizer.sampler.sweeps, optimizer.params) # resets samples lists!
     optimizer.optimizer_cache = TDVPCache(optimizer.mpo.A, optimizer.params)
     optimizer.workspace = set_workspace(optimizer.mpo.A, optimizer.params)
 end
@@ -158,7 +158,8 @@ function TensorComputeGradient!(optimizer::TDVP{T}) where {T<:Complex{<:Abstract
     for n in 1:optimizer.sampler.N_MC
 
         #Generate sample:
-        sample, acc = MetropolisSweepLeft!(sample, 5, optimizer)
+        sample, acc = MetropolisSweepLeft!(sample, optimizer.sampler.sweeps, optimizer)
+        #sample, acc = MetropolisSweepLeft!(sample, 5, optimizer)
         optimizer.optimizer_cache.acceptance += acc/(optimizer.params.N*optimizer.sampler.N_MC)
 
         #Compute local estimators:
