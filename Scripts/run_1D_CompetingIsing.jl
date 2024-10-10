@@ -9,6 +9,9 @@ using Dates
 using JLD
 
 
+# test:
+# mpirun -np 2 julia Scripts/run_1D_CompetingIsing.jl 4 6 1 500 2.2 0.001 0.0001 0.01 0.0
+
 
 mpi_cache = set_mpi()
 
@@ -31,12 +34,13 @@ N = parse(Int64,ARGS[1]) #number of spins
 uc_size = parse(Int64,ARGS[3])
 N_MC = parse(Int64,ARGS[4]) #number of Monte Carlo samples
 burn_in = 2 #Monte Carlo burn-in
+sweeps = 2
 T = parse(Float64,ARGS[5])
 ϵ_shift = parse(Float64,ARGS[6])
 ϵ_SNR = parse(Float64,ARGS[7])
 ϵ_tol = parse(Float64,ARGS[8])
 ising_int="CompetingIsing"
-τ = 10^(-6)#0.001#10^(-8)
+τ = 10^(-8)#0.001#10^(-8)
 #τ = 0.01
 
 params = Parameters(N,χ,Jx,Jy,Jz,J1,J2,hx,hz,γ,γ_d,α1,α2,uc_size)
@@ -44,7 +48,7 @@ params = Parameters(N,χ,Jx,Jy,Jz,J1,J2,hx,hz,γ,γ_d,α1,α2,uc_size)
 #Define one-body Lindbladian operator:
 
 l1 = make_one_body_Lindbladian(hx*sx+hz*sz, sqrt(γ)*sm)
-###=
+
 #Save parameters to file:
 dir = "results/1D_Ising_uc$(uc_size)_chi$(χ)_N$(N)_J1$(J1)_α1$(α1)_J2$(J2)_α2$(α2)_hx$(hx)_hz$(hz)_γ$(γ)"
 if mpi_cache.rank == 0
@@ -54,12 +58,11 @@ if mpi_cache.rank == 0
     mkdir(dir)
     cd(dir)
 end
-##=#
 
 mpo = MPO("z", params, mpi_cache)
 
 #Define sampler and optimizer:
-sampler = MetropolisSampler(N_MC, burn_in, params)
+sampler = MetropolisSampler(N_MC, burn_in, sweeps, params)
 optimizer = TDVP(sampler, mpo, l1, τ, ϵ_shift, ϵ_SNR, ϵ_tol, params, ising_int)
 NormalizeMPO!(params, optimizer)
 
@@ -77,16 +80,14 @@ Mzz_mod_list = []
 times_list = [0.0]
 
 if mpi_cache.rank == 0
-    #=
+    
     #Save parameters to parameter file:
     list_of_parameters = open("Ising_decay.params", "w")
     redirect_stdout(list_of_parameters)
     display(params)
     display(sampler)
-    #display(optimizer)
-    #println("\nN_iter\t", N_iterations)
+    display(optimizer)
     close(list_of_parameters)
-    =#
 
     Z = real( tensor_purity(params,mpo) )
     S2 = real( -log(Z)/N )
@@ -145,121 +146,19 @@ end
 
 k = 0
 optimizer.τ = τ
-display(τ)
-display(optimizer.τ)
-#error()
-
-display(optimizer.mpo.A)
-
 while times_list[end]<T
 
     global k+=1
 
-    #AdaptiveHeunStep!(optimizer, mpi_cache)
     AdaptiveHeunStep!(optimizer, mpi_cache)
-    #optimizer.τ = τ
-    #global _, optimizer = HeunIntegrate!(optimizer.mpo.A, optimizer.τ, optimizer, mpi_cache)
-
-    #global _, optimizer = HeunIntegrate!(optimizer.mpo.A, optimizer.τ/2, optimizer, mpi_cache)
-    #global _, optimizer = HeunIntegrate!(optimizer.mpo.A, optimizer.τ/2, optimizer, mpi_cache)
-
-
-    #display(optimizer.mpo.A)
-    #sleep(5)
-
-    #error()
-
-
-    #global _, optimizer = HeunIntegrate!(optimizer.mpo.A, optimizer.τ, optimizer, mpi_cache)
-    #global _, optimizer = HeunIntegrate!(optimizer.mpo.A, optimizer.τ, optimizer, mpi_cache)
-    #AdaptiveHeunStep!(optimizer, mpi_cache)
-    #global optimizer = AdaptiveHeunStep!(optimizer, mpi_cache)
-    #global optimizer = EulerStep!(optimizer, mpi_cache)
-
-
-    """
-    #TensorComputeGradient!(optimizer)
-    #estimators, gradients = MPI_mean!(optimizer, mpi_cache)
-    #if mpi_cache.rank == 0
-    #    EulerIntegrate!(optimizer, estimators, gradients)
-    #end
-    #MPI.Bcast!(optimizer.mpo.A, 0, mpi_cache.comm)
-
-    #global optimizer = AdaptiveHeunStep!(optimizer, mpi_cache)
-    
-    #global optimizer = EulerStep!(optimizer, mpi_cache)
-    
-    #=
-    y1 = copy(optimizer.mpo.A)
-    _, new_optimizer = HeunIntegrate!(y1, τ, optimizer.sampler.N_MC, optimizer, mpi_cache)
-    optimizer.mpo = new_optimizer.mpo
-    optimizer.optimizer_cache.mlL2 = new_optimizer.optimizer_cache.mlL2
-    =#
-
-
-    #τ = optimizer.τ
-
-    ###=
-    # Single τ step:
-    ###=
-    y1 = deepcopy(optimizer.mpo.A)
-    y1, _ = HeunIntegrate!(y1, τ, optimizer.sampler.N_MC_Heun, deepcopy(optimizer), mpi_cache)
-    
-    # Double τ/2 step:
-    y2 = deepcopy(optimizer.mpo.A)
-    y2, opt = HeunIntegrate!(y2, τ/2, optimizer.sampler.N_MC_Heun, deepcopy(optimizer), mpi_cache)
-    y2, opt = HeunIntegrate!(y2, τ/2, optimizer.sampler.N_MC_Heun, opt, mpi_cache)
-    
-    delta = norm(y1-y2)/3
-    τ_adjusted = τ*min((optimizer.ϵ_tol/delta)^(1/3),1.1)
-    #τ_adjusted = τ*(optimizer.ϵ_tol/delta)^(1/3)#τ*min((optimizer.ϵ_tol/delta)^(1/3),2)
-    ##=#
-
-    #_, new_optimizer = HeunIntegrate!(y1, τ, optimizer.sampler.N_MC, optimizer, mpi_cache)
-    y, new_optimizer = HeunIntegrate!(deepcopy(optimizer.mpo.A), τ, optimizer.sampler.N_MC, deepcopy(optimizer), mpi_cache)
-    global τ = τ_adjusted
-    #y, new_optimizer = HeunIntegrate!(deepcopy(optimizer.mpo.A), τ, optimizer.sampler.N_MC, deepcopy(optimizer), mpi_cache)
-    #display(y)
-    #error()
-    #display(optimizer.mpo.A[:, :, 6, 4])
-    #sleep(5)
-    #display(new_optimizer.mpo.A[:, :, 6, 4])
-    global optimizer = new_optimizer
-    #sleep(5)
-    #display(optimizer.mpo.A[:, :, 6, 4])
-    #sleep(5)
-    #println("end")
-    #error()
-    #optimizer.mpo.A = new_optimizer.mpo.A
-    #optimizer.optimizer_cache.mlL2 = new_optimizer.optimizer_cache.mlL2
-    
-    #optimizer.mpo.A += y
-    #NormalizeMPO!(optimizer.params, optimizer)
-    
-    #optimizer.τ = τ_adjusted
-    #global τ = τ_adjusted
-    ##=#
-    
-    #AdaptiveHeunStep!(optimizer, mpi_cache)
-    """
-
-    #display(optimizer.mpo.A)
-    #sleep(500)
 
     if mpi_cache.rank == 0
 
         mpo = optimizer.mpo
 
         display(optimizer.τ)
-        #display(τ)
-
-
 
         Z = real( tensor_purity(params,mpo) )
-        #display(Z)
-        #display(real( -log(Z)/N ))
-        #sleep(5)
-        #error()
         S2 = real( -log(Z)/N )
         mx=0.0
         my=0.0
@@ -297,11 +196,7 @@ while times_list[end]<T
         println(list_of_obs, M_sq, ",", M_stag, ",", M_mod)
         close(list_of_obs)
 
-        #display(times_list[end]+optimizer.τ)
-        #error()
-
         push!(times_list, times_list[end]+optimizer.τ)
-        #push!(times_list, times_list[end]+τ/2)
         list_of_times = open("times.out", "a")
         println(list_of_times, times_list[end])
         close(list_of_times)
@@ -318,7 +213,7 @@ while times_list[end]<T
         push!(Mzz_mod_list, M_mod)
         
 
-        if mod(k,1)==0
+        if mod(k,10)==0
             save("optimizer.jld", "optimizer", optimizer)
 
             p = plot(times_list, mlL2_list, yscale=:log10)

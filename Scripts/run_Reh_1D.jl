@@ -29,12 +29,12 @@ N = parse(Int64,ARGS[1]) #number of spins
 χ = parse(Int64,ARGS[2]) #MPO bond dimension
 uc_size = parse(Int64,ARGS[3])
 N_MC = parse(Int64,ARGS[4]) #number of Monte Carlo samples
-N_MC_Heun =  parse(Int64,ARGS[5])
 burn_in = 2 #Monte Carlo burn-in
-N_iterations = parse(Int64,ARGS[6])
-ϵ_shift = parse(Float64,ARGS[7])
-ϵ_SNR = parse(Float64,ARGS[8])
-ϵ_tol = parse(Float64,ARGS[9])
+sweeps = 2
+T = parse(Float64,ARGS[5])
+ϵ_shift = parse(Float64,ARGS[6])
+ϵ_SNR = parse(Float64,ARGS[7])
+ϵ_tol = parse(Float64,ARGS[8])
 ising_int = "Ising"
 τ = 10^(-8)
 
@@ -60,9 +60,10 @@ end
 mpo = MPO("y", params, mpi_cache)
 
 #Define sampler and optimizer:
-sampler = MetropolisSampler(N_MC, N_MC_Heun, burn_in, params)
+sampler = MetropolisSampler(N_MC, burn_in, sweeps, params)
 optimizer = TDVP(sampler, mpo, l1, l2, τ, ϵ_shift, ϵ_SNR, ϵ_tol, params, ising_int)
 NormalizeMPO!(params, optimizer)
+
 
 mlL2_list = []
 mx_list = []
@@ -78,13 +79,13 @@ Mzz_mod_list = []
 times_list = [0.0]
 
 if mpi_cache.rank == 0
+    
     #Save parameters to parameter file:
     list_of_parameters = open("Ising_decay.params", "w")
     redirect_stdout(list_of_parameters)
     display(params)
     display(sampler)
-    #display(optimizer)
-    println("\nN_iter\t", N_iterations)
+    display(optimizer)
     close(list_of_parameters)
 
     Z = real( tensor_purity(params,mpo) )
@@ -142,14 +143,19 @@ if mpi_cache.rank == 0
 end
 
 
+k = 0
+optimizer.τ = τ
+while times_list[end]<T
 
-for k in 1:N_iterations
+    global k+=1
 
-    global optimizer = AdaptiveHeunStep!(optimizer, mpi_cache)
+    AdaptiveHeunStep!(optimizer, mpi_cache)
 
     if mpi_cache.rank == 0
 
-        display(τ)
+        mpo = optimizer.mpo
+
+        display(optimizer.τ)
 
         Z = real( tensor_purity(params,mpo) )
         S2 = real( -log(Z)/N )
@@ -173,10 +179,6 @@ for k in 1:N_iterations
         M_stag = ( modulated_magnetization_TI(π, π, params, mpo, sz))#^0.5
         M_mod = ( modulated_magnetization_TI(2π/params.uc_size, 2π/params.uc_size, params, mpo, sz))#^0.5
     
-        list_of_times = open("times.out", "a")
-        println(list_of_times, times_list[end]+optimizer.τ)
-        close(list_of_times)
-    
         list_of_C = open("C.out", "a")
         println(list_of_C, real(optimizer.optimizer_cache.mlL2)/N)
         close(list_of_C)
@@ -193,7 +195,10 @@ for k in 1:N_iterations
         println(list_of_obs, M_sq, ",", M_stag, ",", M_mod)
         close(list_of_obs)
 
-        push!(times_list, times_list[end]+τ)
+        push!(times_list, times_list[end]+optimizer.τ)
+        list_of_times = open("times.out", "a")
+        println(list_of_times, times_list[end])
+        close(list_of_times)
         push!(mlL2_list, real(optimizer.optimizer_cache.mlL2)/N)
         push!(mx_list, mx)
         push!(my_list, my)
@@ -205,6 +210,7 @@ for k in 1:N_iterations
         push!(Mzz_sq_list, M_sq)
         push!(Mzz_stag_list, M_stag)
         push!(Mzz_mod_list, M_mod)
+        
 
         if mod(k,10)==0
             save("optimizer.jld", "optimizer", optimizer)
@@ -238,3 +244,5 @@ for k in 1:N_iterations
         GC.gc()
     end
 end
+
+exit()

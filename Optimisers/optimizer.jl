@@ -81,6 +81,16 @@ mutable struct TDVPl1{T<:Complex{<:AbstractFloat}} <: TDVP{T}
 
 end
 
+function Base.display(opt::TDVPl1)
+    println("\nOptimizer TDVPl1:")
+    println("ising_op\t", opt.ising_op)
+    println("dephasing_op\t", opt.dephasing_op)
+    println("τ\t\t\t", opt.τ)
+    println("ϵ_shift\t\t", opt.ϵ_shift)
+    println("ϵ_SNR\t\t", opt.ϵ_SNR)
+    println("ϵ_tol\t\t", opt.ϵ_tol)
+end
+
 function Base.copy(opt::TDVPl1)
     sampler = MetropolisSampler(optimizer.sampler.N_MC, opt.sampler.N_MC_Heun, 0, opt.params) 
     return TDVPl1(deepcopy(opt.mpo), sampler, opt.optimizer_cache, opt.l1, opt.ising_op, opt.dephasing_op, opt.params, opt.τ, opt.ϵ_shift, opt.ϵ_SNR, opt.ϵ_tol, opt.workspace)
@@ -146,6 +156,16 @@ mutable struct TDVPl2{T<:Complex{<:AbstractFloat}} <: TDVP{T}
     #Workspace:
     workspace::Workspace{T}#Union{workspace,Nothing}
 
+end
+
+function Base.display(opt::TDVPl2)
+    println("\nOptimizer TDVPl2:")
+    println("ising_op\t", opt.ising_op)
+    println("dephasing_op\t", opt.dephasing_op)
+    println("τ\t\t\t", opt.τ)
+    println("ϵ_shift\t\t", opt.ϵ_shift)
+    println("ϵ_SNR\t\t", opt.ϵ_SNR)
+    println("ϵ_tol\t\t", opt.ϵ_tol)
 end
 
 export TDVP

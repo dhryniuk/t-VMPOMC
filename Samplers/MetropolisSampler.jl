@@ -11,7 +11,7 @@ end
 struct MetropolisSampler
     N_MC::Int64
     burn::Int64
-    #sweeps::Int64
+    sweeps::Int64
 
     # Sampled data:
     estimators::Vector{ComplexF64}
@@ -20,10 +20,10 @@ struct MetropolisSampler
 end
 
 # Constructor:
-function MetropolisSampler(N_MC::Int64,burn::Int64, params::Parameters)
+function MetropolisSampler(N_MC::Int64, burn::Int64, sweeps::Int64, params::Parameters)
     estimators = zeros(ComplexF64, N_MC)
     gradients = zeros(ComplexF64, N_MC, params.uc_size*params.χ*params.χ*4)
-    return MetropolisSampler(N_MC, burn, estimators, gradients)
+    return MetropolisSampler(N_MC, burn, sweeps, estimators, gradients)
 end
 
 
@@ -31,4 +31,5 @@ Base.display(sampler::MetropolisSampler) = begin
     println("\nSampler:")
     println("N_MC\t\t", sampler.N_MC)
     println("burn\t\t", sampler.burn)
+    println("sweeps\t\t", sampler.sweeps)
 end
