@@ -81,6 +81,8 @@ function AdaptiveHeunStep!(optimizer::TDVP{T}, mpi_cache) where {T<:Complex{<:Ab
     y2, opt = HeunIntegrate!(y2, τ/2, deepcopy(opt), mpi_cache)
 
     delta = norm(y1-y2)/6 #/3?
+    #delta = norm(y1-y2)/(6*norm(y1)*norm(y2))
+    #τ_adjusted = τ*min((optimizer.ϵ_tol/delta)^(1/3), 1.1)
     τ_adjusted = τ*(optimizer.ϵ_tol/delta)^(1/3)
     optimizer.τ = τ_adjusted
 
