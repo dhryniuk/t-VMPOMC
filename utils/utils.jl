@@ -13,9 +13,8 @@ sy = [0.0+0.0im 0.0-1im; 0.0+1im 0.0+0.0im]
 sz = [1.0+0.0im 0.0+0.0im; 0.0+0.0im -1.0+0.0im]
 sp = (sx+1im*sy)/2
 sm = (sx-1im*sy)/2
-
-smx = (sz-1im*sy)/2
-spx = (-sz-1im*sy)/2
+smx = (sz+1im*sy)/2
+spx = (sz-1im*sy)/2
 
 sp_id = sparse(id)
 sp_sx = sparse(sx)
