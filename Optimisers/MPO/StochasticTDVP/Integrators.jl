@@ -1,4 +1,4 @@
-export EulerStep!, AdaptiveHeunStep!
+export EulerStep!, AdaptiveHeunStep!, AdaptiveHeunStepCapped!
 
 
 export TensorComputeGradient!, EulerIntegrate!, MPI_mean!
@@ -65,6 +65,8 @@ function HeunIntegrate!(y::Array, δ::Float64, optimizer::TDVP{T}, mpi_cache) wh
     NormalizeMPO!(optimizer.params, optimizer)
     optimizer.optimizer_cache.mlL2 = opt_2.optimizer_cache.mlL2
 
+    optimizer.optimizer_cache.S = opt_2.optimizer_cache.S
+
     return y, optimizer
 end
 
@@ -78,13 +80,39 @@ function AdaptiveHeunStep!(optimizer::TDVP{T}, mpi_cache) where {T<:Complex{<:Ab
     # Double τ/2 step:
     y2 = zeros(size(optimizer.mpo.A))
     y2, opt = HeunIntegrate!(y2, τ/2, deepcopy(optimizer), mpi_cache)
-    y2, opt = HeunIntegrate!(y2, τ/2, deepcopy(opt), mpi_cache)
+    #y2, opt = HeunIntegrate!(y2, τ/2, deepcopy(opt), mpi_cache)
+    y2, opt = HeunIntegrate!(y2, τ/2, opt, mpi_cache)
 
     delta = norm(y1-y2)/6 #/3?
     #delta = norm(y1-y2)/(6*norm(y1)*norm(y2))
     #τ_adjusted = τ*min((optimizer.ϵ_tol/delta)^(1/3), 1.1)
     τ_adjusted = τ*(optimizer.ϵ_tol/delta)^(1/3)
-    optimizer.τ = τ_adjusted
+    optimizer.τ = min(τ_adjusted, optimizer.max_τ)
+
+    #_, optimizer = HeunIntegrate!(optimizer.mpo.A, optimizer.τ, optimizer, mpi_cache)
+
+    _, optimizer = HeunIntegrate!(optimizer.mpo.A, optimizer.τ/2, optimizer, mpi_cache)
+    _, optimizer = HeunIntegrate!(optimizer.mpo.A, optimizer.τ/2, optimizer, mpi_cache)
+end
+
+function AdaptiveHeunStepCapped!(max_τ::Float64, optimizer::TDVP{T}, mpi_cache) where {T<:Complex{<:AbstractFloat}}
+    τ = optimizer.τ
+
+    # Single τ step:
+    y1 = zeros(size(optimizer.mpo.A))
+    y1, _ = HeunIntegrate!(y1, τ, deepcopy(optimizer), mpi_cache)
+
+    # Double τ/2 step:
+    y2 = zeros(size(optimizer.mpo.A))
+    y2, opt = HeunIntegrate!(y2, τ/2, deepcopy(optimizer), mpi_cache)
+    #y2, opt = HeunIntegrate!(y2, τ/2, deepcopy(opt), mpi_cache)
+    y2, opt = HeunIntegrate!(y2, τ/2, opt, mpi_cache)
+
+    delta = norm(y1-y2)/6 #/3?
+    #delta = norm(y1-y2)/(6*norm(y1)*norm(y2))
+    #τ_adjusted = τ*min((optimizer.ϵ_tol/delta)^(1/3), 1.1)
+    τ_adjusted = τ*(optimizer.ϵ_tol/delta)^(1/3)
+    optimizer.τ = min(τ_adjusted, max_τ)
 
     #_, optimizer = HeunIntegrate!(optimizer.mpo.A, optimizer.τ, optimizer, mpi_cache)
 
