@@ -67,7 +67,10 @@ function nn_tensor_correlation_2D(op1::Array{ComplexF64}, params::Parameters, mp
     corr = 0.0
     for site in sites
         corr += 2*tensor_correlation(site0, site, op1, op1, params, mpo)
+        #display(2*2tensor_correlation(site0, site, op1, op1, params, mpo))
+        #sleep(10)
     end
+    #error()
     return corr/4
 end
 
@@ -135,7 +138,7 @@ export modulated_magnetization_TI
 
 function modulated_magnetization_TI(q::Number, params::Parameters, mpo::MPO{ComplexF64}, op::Array{ComplexF64})
     m::ComplexF64 = 0
-    for i in 1:1
+    for i in 1:params.N#1
         for j in 1:params.N
             if i == j
                 m += tensor_magnetization(i, params, mpo, id)
@@ -144,7 +147,7 @@ function modulated_magnetization_TI(q::Number, params::Parameters, mpo::MPO{Comp
             end
         end
     end
-    return abs(real(m/params.N))
+    return abs(real(m/params.N^2)) #abs(real(m/params.N))
 end
 
 function modulated_magnetization_TI(qx::Number, qy::Number, params::Parameters, mpo::MPO{ComplexF64}, op::Array{ComplexF64})

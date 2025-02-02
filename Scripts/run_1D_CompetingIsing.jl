@@ -9,19 +9,15 @@ using Dates
 using JLD
 
 
-# test:
-# mpirun -np 2 julia Scripts/run_1D_CompetingIsing.jl 4 6 1 500 2.2 0.001 0.0001 0.01 0.0
-
-
 mpi_cache = set_mpi()
 
 #Set parameters:
 Jx= 0.0 #interaction strength
 Jy= 0.0 #interaction strength
 Jz= 0.0 #interaction strength
-J1= 1.0 #interaction strength
-J2= parse(Float64,ARGS[9]) #interaction strength
-hx= 2.0 #transverse field strength
+J1= 0.5 #interaction strength
+J2= -1.0 #interaction strength
+hx= 0.5 #transverse field strength
 hz= 0.0 #longitudinal field strength
 γ = 1.0 #spin decay rate
 N = parse(Int64,ARGS[1]) #number of spins
@@ -39,47 +35,41 @@ T = parse(Float64,ARGS[5])
 ϵ_shift = parse(Float64,ARGS[6])
 ϵ_SNR = parse(Float64,ARGS[7])
 ϵ_tol = parse(Float64,ARGS[8])
-ising_int="CompetingIsing"
-τ = 10^(-8)#0.001#10^(-8)
-#τ = 0.01
+max_τ = parse(Float64,ARGS[9])
+ising_int = "CompetingIsing"
+τ = 10^(-8)
 
 params = Parameters(N,χ,Jx,Jy,Jz,J1,J2,hx,hz,γ,γ_d,α1,α2,uc_size)
 
 #Define one-body Lindbladian operator:
-
 l1 = make_one_body_Lindbladian(hx*sx+hz*sz, sqrt(γ)*sm)
 
-#Save parameters to file:
-dir = "results/1D_Ising_uc$(uc_size)_chi$(χ)_N$(N)_J1$(J1)_α1$(α1)_J2$(J2)_α2$(α2)_hx$(hx)_hz$(hz)_γ$(γ)"
-if mpi_cache.rank == 0
-    if isdir(dir)==true
-        error("Directory already exists")
-    end
-    mkdir(dir)
-    cd(dir)
-end
-
-mpo = MPO("z", params, mpi_cache)
+mpo = MPO("y", params, mpi_cache)
 
 #Define sampler and optimizer:
 sampler = MetropolisSampler(N_MC, burn_in, sweeps, params)
 optimizer = TDVP(sampler, mpo, l1, τ, ϵ_shift, ϵ_SNR, ϵ_tol, params, ising_int)
 NormalizeMPO!(params, optimizer)
 
-mlL2_list = []
-mx_list = []
-my_list = []
-mz_list = []
-S2_list = []
-Cxx_list = []
-Cyy_list = []
-Czz_list = []
-Mzz_sq_list = []
-Mzz_stag_list = []
-Mzz_mod_list = []
-times_list = [0.0]
 
+last_iteration_step = 1
+
+#Save parameters to file:
+dir = "LRIsing_1D_uc$(uc_size)_chi$(χ)_N$(N)_J1$(J1)_α1$(α1)_J2$(J2)_α2$(α2)_hx$(hx)_hz$(hz)_γ$(γ)"
 if mpi_cache.rank == 0
+    if isdir(dir)==true
+        cd(dir)
+        optimizer = load("optimizer.jld", "optimizer")
+        list_of_C = open("C.out", "r")
+        last_iteration_step=countlines(list_of_C)+1
+    else    
+        mkdir(dir)
+        cd(dir)
+    end
+end
+
+
+if mpi_cache.rank == 0 && last_iteration_step == 1
     
     #Save parameters to parameter file:
     list_of_parameters = open("Ising_decay.params", "w")
@@ -89,8 +79,6 @@ if mpi_cache.rank == 0
     display(optimizer)
     close(list_of_parameters)
 
-    Z = real( tensor_purity(params,mpo) )
-    S2 = real( -log(Z)/N )
     mx = 0.0
     my = 0.0
     mz = 0.0
@@ -100,66 +88,65 @@ if mpi_cache.rank == 0
         global mz += real.( tensor_magnetization(n,params,mpo,sz) )
     end
     mx/=uc_size
+    my/=uc_size
     mz/=uc_size
-
-    Cxx = tensor_correlation(1,2,sx,sx,params,mpo) - mx^2
-    Cyy = tensor_correlation(1,2,sy,sy,params,mpo) - my^2
-    Czz = tensor_correlation(1,2,sz,sz,params,mpo) - mz^2
-
-    M_sq = ( modulated_magnetization_TI(0.0, 0.0, params, mpo, sz) )#^0.5
-    M_stag = ( modulated_magnetization_TI(π, π, params, mpo, sz))#^0.5
-    M_mod = ( modulated_magnetization_TI(2π/params.uc_size, 2π/params.uc_size, params, mpo, sz))#^0.5
-
-    list_of_times = open("times.out", "a")
-    println(list_of_times, 0.0)
-    close(list_of_times)
 
     list_of_C = open("C.out", "a")
     println(list_of_C, real(optimizer.optimizer_cache.mlL2)/N)
     close(list_of_C)
 
     list_of_obs = open("obs.out", "a")
-    println(list_of_obs, mx, ",", my, ",", mz, ",", Z, ",", S2)
+    println(list_of_obs, mx, ",", my, ",", mz)
     close(list_of_obs)
 
-    list_of_obs = open("corr.out", "a")
-    println(list_of_obs, Cxx - mx^2, ",", Cyy - my^2, ",", Czz - mz^2)
+    Cxx = tensor_correlation(1,2,sx,sx,params,mpo) - mx^2
+    Cyy = tensor_correlation(1,2,sy,sy,params,mpo) - my^2
+    Czz = tensor_correlation(1,2,sz,sz,params,mpo) - mz^2
+
+    list_of_obs = open("corr2.out", "a")
+    println(list_of_obs, Cxx, ",", Cyy, ",", Czz)
     close(list_of_obs)
+
+    Cxx = tensor_correlation(1,3,sx,sx,params,mpo) - mx^2
+    Cyy = tensor_correlation(1,3,sy,sy,params,mpo) - my^2
+    Czz = tensor_correlation(1,3,sz,sz,params,mpo) - mz^2
+
+    list_of_obs = open("corr3.out", "a")
+    println(list_of_obs, Cxx, ",", Cyy, ",", Czz)
+    close(list_of_obs)
+
+    M_sq = ( modulated_magnetization_TI(0.0, params, mpo, sz) )#^0.5
+    M_stag = ( modulated_magnetization_TI(π, params, mpo, sz))#^0.5
+    M_mod = ( modulated_magnetization_TI(2π/params.N, params, mpo, sz))#^0.5
 
     list_of_obs = open("ssf.out", "a")
     println(list_of_obs, M_sq, ",", M_stag, ",", M_mod)
     close(list_of_obs)
 
-    push!(mlL2_list, 1)
-    push!(mx_list, mx)
-    push!(my_list, my)
-    push!(mz_list, mz)
-    push!(S2_list, S2)
-    push!(Cxx_list, Cxx)
-    push!(Cyy_list, Cyy)
-    push!(Czz_list, Czz)
-    push!(Mzz_sq_list, M_sq)
-    push!(Mzz_stag_list, M_stag)
-    push!(Mzz_mod_list, M_mod)
+    list_of_times = open("times.out", "a")
+    println(list_of_times, 0.0)
+    close(list_of_times)
 end
 
+MPI.Barrier(mpi_cache.comm)
+if mpi_cache.rank != 0
+    cd(dir)
+end
+MPI.bcast(last_iteration_step, 0, mpi_cache.comm)
+MPI.bcast(optimizer.τ, 0, mpi_cache.comm)
+MPI.Bcast!(optimizer.mpo.A, 0, mpi_cache.comm)
 
-k = 0
-optimizer.τ = τ
-while times_list[end]<T
+current_time::Float64 = parse(Float64, readlines("times.out")[end])
+while current_time<T
 
-    global k+=1
+    global last_iteration_step+=1
 
-    AdaptiveHeunStep!(optimizer, mpi_cache)
+    #EulerStep!(optimizer, mpi_cache)
+    AdaptiveHeunStepCapped!(max_τ, optimizer, mpi_cache)
 
     if mpi_cache.rank == 0
 
         mpo = optimizer.mpo
-
-        display(optimizer.τ)
-
-        Z = real( tensor_purity(params,mpo) )
-        S2 = real( -log(Z)/N )
         mx=0.0
         my=0.0
         mz=0.0
@@ -171,79 +158,52 @@ while times_list[end]<T
         mx/=uc_size
         my/=uc_size
         mz/=uc_size
-
-        Cxx = tensor_correlation(1,2,sx,sx,params,mpo) - mx^2
-        Cyy = tensor_correlation(1,2,sy,sy,params,mpo) - my^2
-        Czz = tensor_correlation(1,2,sz,sz,params,mpo) - mz^2
-
-        M_sq = ( modulated_magnetization_TI(0.0, 0.0, params, mpo, sz) )#^0.5
-        M_stag = ( modulated_magnetization_TI(π, π, params, mpo, sz))#^0.5
-        M_mod = ( modulated_magnetization_TI(2π/params.uc_size, 2π/params.uc_size, params, mpo, sz))#^0.5
     
+        save("optimizer.jld", "optimizer", optimizer)
+
         list_of_C = open("C.out", "a")
         println(list_of_C, real(optimizer.optimizer_cache.mlL2)/N)
         close(list_of_C)
     
         list_of_obs = open("obs.out", "a")
-        println(list_of_obs, mx, ",", my, ",", mz, ",", Z, ",", S2)
+        println(list_of_obs, mx, ",", my, ",", mz)
         close(list_of_obs)
     
-        list_of_obs = open("corr.out", "a")
-        println(list_of_obs, Cxx - mx^2, ",", Cyy - my^2, ",", Czz - mz^2)
+        Cxx = tensor_correlation(1,2,sx,sx,params,mpo) - mx^2
+        Cyy = tensor_correlation(1,2,sy,sy,params,mpo) - my^2
+        Czz = tensor_correlation(1,2,sz,sz,params,mpo) - mz^2
+    
+        list_of_obs = open("corr2.out", "a")
+        println(list_of_obs, Cxx, ",", Cyy, ",", Czz)
         close(list_of_obs)
+    
+        Cxx = tensor_correlation(1,3,sx,sx,params,mpo) - mx^2
+        Cyy = tensor_correlation(1,3,sy,sy,params,mpo) - my^2
+        Czz = tensor_correlation(1,3,sz,sz,params,mpo) - mz^2
+    
+        list_of_obs = open("corr3.out", "a")
+        println(list_of_obs, Cxx, ",", Cyy, ",", Czz)
+        close(list_of_obs)
+
+        M_sq = ( modulated_magnetization_TI(0.0, 0.0, params, mpo, sz) )#^0.5
+        M_stag = ( modulated_magnetization_TI(π, π, params, mpo, sz))#^0.5
+        M_mod = ( modulated_magnetization_TI(2π/params.uc_size, 2π/params.uc_size, params, mpo, sz))#^0.5
 
         list_of_obs = open("ssf.out", "a")
         println(list_of_obs, M_sq, ",", M_stag, ",", M_mod)
         close(list_of_obs)
 
-        push!(times_list, times_list[end]+optimizer.τ)
+        global current_time += optimizer.τ
         list_of_times = open("times.out", "a")
-        println(list_of_times, times_list[end])
+        println(list_of_times, current_time)
         close(list_of_times)
-        push!(mlL2_list, real(optimizer.optimizer_cache.mlL2)/N)
-        push!(mx_list, mx)
-        push!(my_list, my)
-        push!(mz_list, mz)
-        push!(S2_list, S2)
-        push!(Cxx_list, Cxx)
-        push!(Cyy_list, Cyy)
-        push!(Czz_list, Czz)
-        push!(Mzz_sq_list, M_sq)
-        push!(Mzz_stag_list, M_stag)
-        push!(Mzz_mod_list, M_mod)
-        
 
-        if mod(k,10)==0
-            save("optimizer.jld", "optimizer", optimizer)
-
-            p = plot(times_list, mlL2_list, yscale=:log10)
-            savefig(p, "mlL2.png")
-            p = plot(times_list, mx_list)
-            savefig(p, "mx.png")
-            p = plot(times_list, my_list)
-            savefig(p, "my.png")
-            p = plot(times_list, mz_list)
-            savefig(p, "mz.png")
-            p = plot(times_list, S2_list)
-            savefig(p, "S2.png")
-            p = plot(times_list, Cxx_list)
-            savefig(p, "Cxx.png")
-            p = plot(times_list, Cyy_list)
-            savefig(p, "Cyy.png")
-            p = plot(times_list, Czz_list)
-            savefig(p, "Czz.png")
-            p = plot(times_list, Mzz_sq_list)
-            savefig(p, "Mzz_sq.png")
-            p = plot(times_list, Mzz_stag_list)
-            savefig(p, "Mzz_stag.png")
-            p = plot(times_list, Mzz_mod_list)
-            savefig(p, "Mzz_mod.png")
-        end
+        save("optimizer_backup.jld", "optimizer", optimizer)
     end
 
-    if mod(k,10)==0
-        GC.gc()
-    end
+    GC.gc()
 end
 
-exit()
+MPI.Barrier(mpi_cache.comm)
+
+error("Exiting")

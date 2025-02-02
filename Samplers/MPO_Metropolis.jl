@@ -4,7 +4,7 @@ function MetropolisSweepLeft!(sample::Projector, optimizer::TDVP{T}) where {T<:C
     params = optimizer.params
     ws = optimizer.workspace
     acc = 0
-    
+
     ws.R_set[1] = Matrix{T}(I, params.χ, params.χ)  # Identity matrix
     ws.C_mat = ws.L_set[params.N+1]
     C = tr(ws.C_mat)  # current probability amplitude
@@ -92,7 +92,7 @@ function MPO_Metropolis_burn_in!(optimizer::TDVP{T}) where {T<:Complex{<:Abstrac
     A=optimizer.mpo.A
     params=optimizer.params
     ws=optimizer.workspace
-    
+
     # Initialize random sample and calculate L_set for that sample:
     sample::Projector = Projector(rand(Bool, params.N),rand(Bool, params.N))
     ws.L_set = L_MPO_products!(ws.L_set, sample, optimizer.mpo, params, ws)
@@ -106,8 +106,8 @@ function MPO_Metropolis_burn_in!(optimizer::TDVP{T}) where {T<:Complex{<:Abstrac
 end
 
 function MetropolisSweepLeft!(sample::Projector, sweeps::Int64, optimizer::TDVP{T}) where {T<:Complex{<:AbstractFloat}} 
-
-    sample, acc = MetropolisSweepLeft!(sample, optimizer)
+    
+    #sample, acc = MetropolisSweepLeft!(sample, optimizer)
     sample,_ = MetropolisSweepLeft!(sample,optimizer)
 
     # Perform burn_in:

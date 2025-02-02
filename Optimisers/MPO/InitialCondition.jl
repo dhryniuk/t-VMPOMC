@@ -15,6 +15,13 @@ function MPO(orientation::String, params, mpi_cache)
             A_init[n,:,:,3].=-1.0im/2
             A_init[n,:,:,4].=1.0/2
         end
+    elseif orientation=="z"
+        for n in 1:params.uc_size
+            A_init[n,:,:,1].=0.01
+            A_init[n,:,:,2].=0.01
+            A_init[n,:,:,3].=0.01
+            A_init[n,:,:,4].=0.99
+        end
     else
         error("Unknown Initial Condition")
     end

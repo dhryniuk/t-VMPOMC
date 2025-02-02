@@ -91,15 +91,15 @@ function Base.display(opt::TDVPl1)
     println("ϵ_tol\t\t", opt.ϵ_tol)
 end
 
-function Base.copy(opt::TDVPl1)
-    sampler = MetropolisSampler(optimizer.sampler.N_MC, opt.sampler.N_MC_Heun, 0, opt.params) 
+function Base.deepcopy(opt::TDVPl1)
+    sampler = MetropolisSampler(opt.sampler.N_MC, opt.sampler.burn, opt.sampler.sweeps, opt.params) 
     return TDVPl1(deepcopy(opt.mpo), sampler, opt.optimizer_cache, opt.l1, opt.ising_op, opt.dephasing_op, opt.params, opt.τ, opt.ϵ_shift, opt.ϵ_SNR, opt.ϵ_tol, opt.workspace)
     #return TDVPl1(deepcopy(opt.mpo), opt.sampler, TDVPCache(deepcopy(opt.mpo.A),opt.params), opt.l1, opt.ising_op, opt.dephasing_op, opt.params, opt.τ, opt.ϵ_shift, opt.ϵ_SNR, opt.ϵ_tol, set_workspace(deepcopy(opt.mpo.A), opt.params))
     #return TDVPl1(opt.mpo, opt.sampler, opt.optimizer_cache, opt.l1, opt.ising_op, opt.dephasing_op, opt.params, opt.τ, opt.ϵ_shift, opt.ϵ_SNR, opt.ϵ_tol, opt.workspace)
 end
 
-function Base.copy(opt::TDVPl1, N_MC_H::Int64)
-    Heun_sampler = MetropolisSampler(N_MC_H, opt.sampler.N_MC_Heun, 0, opt.params) 
+function Base.deepcopy(opt::TDVPl1, N_MC_H::Int64)
+    Heun_sampler = MetropolisSampler(N_MC_H, opt.sampler.burn, opt.sampler.sweeps, opt.params) 
     return TDVPl1(deepcopy(opt.mpo), Heun_sampler, opt.optimizer_cache, opt.l1, opt.ising_op, opt.dephasing_op, opt.params, opt.τ, opt.ϵ_shift, opt.ϵ_SNR, opt.ϵ_tol, opt.workspace)
     #return TDVPl1(deepcopy(opt.mpo), Heun_sampler, TDVPCache(deepcopy(opt.mpo.A),opt.params), opt.l1, opt.ising_op, opt.dephasing_op, opt.params, opt.τ, opt.ϵ_shift, opt.ϵ_SNR, opt.ϵ_tol, set_workspace(deepcopy(opt.mpo.A), opt.params))
     #return TDVPl1(opt.mpo, Heun_sampler, opt.optimizer_cache, opt.l1, opt.ising_op, opt.dephasing_op, opt.params, opt.τ, opt.ϵ_shift, opt.ϵ_SNR, opt.ϵ_tol, opt.workspace)
@@ -179,13 +179,13 @@ function TDVP(sampler::MetropolisSampler, mpo::MPO{T}, l1::Matrix{T}, l2::Array{
     return optimizer
 end
 
-function Base.copy(opt::TDVPl2)
-    return TDVPl2(opt.mpo, opt.sampler, opt.optimizer_cache, opt.l1, opt.l2, opt.ising_op, opt.dephasing_op, opt.params, opt.τ, opt.ϵ_shift, opt.ϵ_SNR, opt.ϵ_tol, opt.workspace)
+function Base.deepcopy(opt::TDVPl2)
+    return TDVPl2(deepcopy(opt.mpo), opt.sampler, opt.optimizer_cache, opt.l1, opt.l2, opt.ising_op, opt.dephasing_op, opt.params, opt.τ, opt.ϵ_shift, opt.ϵ_SNR, opt.ϵ_tol, opt.workspace)
 end
 
-function Base.copy(opt::TDVPl2, N_MC_H::Int64)
-    Heun_sampler = MetropolisSampler(N_MC_H, opt.sampler.N_MC_Heun, 0, opt.params) 
-    return TDVPl2(opt.mpo, Heun_sampler, opt.optimizer_cache, opt.l1, opt.l2, opt.ising_op, opt.dephasing_op, opt.params, opt.τ, opt.ϵ_shift, opt.ϵ_SNR, opt.ϵ_tol, opt.workspace)
+function Base.deepcopy(opt::TDVPl2, N_MC_H::Int64)
+    Heun_sampler = MetropolisSampler(N_MC_H, 0, opt.sweeps, opt.params) 
+    return TDVPl2(deepcopy(opt.mpo), Heun_sampler, opt.optimizer_cache, opt.l1, opt.l2, opt.ising_op, opt.dephasing_op, opt.params, opt.τ, opt.ϵ_shift, opt.ϵ_SNR, opt.ϵ_tol, opt.workspace)
 end
 
 mutable struct TDVP_H{T<:Complex{<:AbstractFloat}} <: TDVP{T}
@@ -220,6 +220,16 @@ mutable struct TDVP_H{T<:Complex{<:AbstractFloat}} <: TDVP{T}
 
 end
 
+function Base.display(opt::TDVP_H)
+    println("\nOptimizer TDVP_H:")
+    println("ising_op\t", opt.ising_op)
+    println("dephasing_op\t", opt.dephasing_op)
+    println("τ\t\t\t", opt.τ)
+    println("ϵ_shift\t\t", opt.ϵ_shift)
+    println("ϵ_SNR\t\t", opt.ϵ_SNR)
+    println("ϵ_tol\t\t", opt.ϵ_tol)
+end
+
 export TDVP_H
 
 function TDVP_H(sampler::MetropolisSampler, mpo::MPO{T}, l1::Matrix{T}, l2::Array{T}, τ::Float64, ϵ_shift::Float64, ϵ_SNR::Float64, ϵ_tol::Float64, params::Parameters) where {T<:Complex{<:AbstractFloat}} 
@@ -227,13 +237,13 @@ function TDVP_H(sampler::MetropolisSampler, mpo::MPO{T}, l1::Matrix{T}, l2::Arra
     return optimizer
 end
 
-function Base.copy(opt::TDVP_H)
-    return TDVP_H(opt.mpo, opt.sampler, opt.optimizer_cache, opt.l1, opt.l2, opt.ising_op, opt.dephasing_op, opt.params, opt.τ, opt.ϵ_shift, opt.ϵ_SNR, opt.ϵ_tol, opt.workspace)
+function Base.deepcopy(opt::TDVP_H)
+    return TDVP_H(deepcopy(opt.mpo), opt.sampler, opt.optimizer_cache, opt.l1, opt.l2, opt.ising_op, opt.dephasing_op, opt.params, opt.τ, opt.ϵ_shift, opt.ϵ_SNR, opt.ϵ_tol, opt.workspace)
 end
 
-function Base.copy(opt::TDVP_H, N_MC_H::Int64)
-    Heun_sampler = MetropolisSampler(N_MC_H, opt.sampler.N_MC_Heun, 0, opt.params) 
-    return TDVP_H(opt.mpo, Heun_sampler, opt.optimizer_cache, opt.l1, opt.l2, opt.ising_op, opt.dephasing_op, opt.params, opt.τ, opt.ϵ_shift, opt.ϵ_SNR, opt.ϵ_tol, opt.workspace)
+function Base.deepcopy(opt::TDVP_H, N_MC_H::Int64)
+    Heun_sampler = MetropolisSampler(N_MC_H, 0, opt.sweeps, opt.params) 
+    return TDVP_H(deepcopy(opt.mpo), Heun_sampler, opt.optimizer_cache, opt.l1, opt.l2, opt.ising_op, opt.dephasing_op, opt.params, opt.τ, opt.ϵ_shift, opt.ϵ_SNR, opt.ϵ_tol, opt.workspace)
 end
 
 

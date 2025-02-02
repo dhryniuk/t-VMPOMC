@@ -47,8 +47,8 @@ function UpdateSR!(optimizer::TDVP{T}) where {T<:Complex{<:AbstractFloat}}
     avg_G .+= G
     #BLAS.herk!('U', 'N', 1.0, transpose(G), 1.0, ws.plus_S) 
     mul!(ws.plus_S,conj.(G),transpose(G)) ### VERY EXPENSIVE
-    BLAS.axpy!(1.0, ws.plus_S, S)
-    #@inbounds S .+= ws.plus_S ### MOST EXPENSIVE
+    #BLAS.axpy!(1.0, ws.plus_S, S)
+    @inbounds S .+= ws.plus_S ### MOST EXPENSIVE
 end
 
 

@@ -56,10 +56,11 @@ function Reconfigure!(optimizer::TDVP{ComplexF64}, local_estimators::Vector{Comp
     data.S./=N_MC
     data.avg_G./=N_MC
     conj_avg_G = conj(data.avg_G)
-    data.S -= conj_avg_G*transpose(data.avg_G)
+    #data.S -= conj_avg_G*transpose(data.avg_G)
 
     # Obtain gradient vector:
-    grad = (data.L∂L-data.ΔLL)/N_MC
+    grad = (data.L∂L)/N_MC
+    #grad = (data.L∂L-data.ΔLL)/N_MC
     flat_grad = reshape(grad, prod(size(grad)))
 
     σ, _ = eigen(data.S)
@@ -84,4 +85,78 @@ function Reconfigure!(optimizer::TDVP{ComplexF64}, local_estimators::Vector{Comp
     #end 
 
     data.∇ = reshape(flat_grad, size(data.∇))
+
+    ### Doesn't seem to matter, but re-zero anyway:
+    data.S = zeros(ComplexF64, 4*params.χ^2*params.uc_size, 4*params.χ^2*params.uc_size)
+    data.avg_G = zeros(ComplexF64, 4*params.χ^2*params.uc_size)
 end
+
+"""
+function Reconfigure!(optimizer::TDVP{ComplexF64}, local_estimators::Vector{ComplexF64}, gradients::Array{ComplexF64,2}) where {T<:Complex{<:AbstractFloat}} #... the gradient tensor
+    data = optimizer.optimizer_cache
+    N_MC = optimizer.sampler.N_MC
+    params = optimizer.params
+
+    # Compute metric tensor:
+    data.S./=N_MC
+    data.avg_G./=N_MC
+    conj_avg_G = conj(data.avg_G)
+    data.S -= conj_avg_G*transpose(data.avg_G)
+
+    # Obtain gradient vector:
+    grad = (data.L∂L-data.ΔLL)/N_MC
+    flat_grad = reshape(grad, prod(size(grad)))
+
+    
+    #display(data.S)
+    #sleep(5)
+
+    σ, _ = eigen(data.S)
+    λ = 2*abs(minimum(real.(σ)))
+
+    #display(σ)
+    #sleep(0.1)
+
+    #list_of_σ = open("S_evals.out", "a")
+    #println(list_of_σ, join(real.(σ), ","))
+    #close(list_of_σ)
+
+    # ϵ-shift regulator:
+    σ, V = eigen(data.S + (λ+optimizer.ϵ_shift)*Matrix{Int}(I, size(data.S)))
+    flat_grad = V'*flat_grad
+
+    
+
+    # Moore-Penrose pseudoinverse regulator:
+    ###=
+    if optimizer.ϵ_SNR!=0.0
+        f_var, diff = f_variance(V, local_estimators, gradients, params)
+        SNR = sqrt.(diff)./sqrt.(f_var./N_MC)
+        σ_inv = ( (σ).*reshape((1 .+ (optimizer.ϵ_SNR./SNR).^1), 4*params.χ^2*params.uc_size) ).^(-1.0)
+        flat_grad = V*diagm(σ_inv)*flat_grad
+    end
+    ##=#
+    #=
+    σ_inv = inv.(σ)
+
+    #display(σ)
+    #sleep(5)
+    
+    num_greater = count(x -> real.(x) > 10^(-12), σ)
+
+    #println(num_greater)
+    #sleep(5)
+    if num_greater == 300
+        cutoff = optimizer.ϵ_SNR
+        for i in 1:length(σ)
+            if abs.(σ[i])<cutoff
+                σ_inv[i] = 0.0
+            end
+        end 
+    end
+    flat_grad = V*diagm(σ_inv)*flat_grad
+    =#
+
+    data.∇ = reshape(flat_grad, size(data.∇))
+end
+"""

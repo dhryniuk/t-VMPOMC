@@ -36,7 +36,7 @@ T = parse(Float64,ARGS[5])
 ϵ_SNR = parse(Float64,ARGS[7])
 ϵ_tol = parse(Float64,ARGS[8])
 ising_int = "Ising"
-τ = 10^(-8)
+τ = 0.05#10^(-8)
 
 params = Parameters(N,χ,Jx,Jy,Jz,J1,J2,hx,hz,γ,γ_d,α1,α2,uc_size)
 
@@ -122,7 +122,7 @@ if mpi_cache.rank == 0
     close(list_of_obs)
 
     list_of_obs = open("corr.out", "a")
-    println(list_of_obs, Cxx - mx^2, ",", Cyy - my^2, ",", Czz - mz^2)
+    println(list_of_obs, Cxx, ",", Cyy, ",", Czz)
     close(list_of_obs)
 
     list_of_obs = open("ssf.out", "a")
@@ -149,7 +149,8 @@ while times_list[end]<T
 
     global k+=1
 
-    AdaptiveHeunStep!(optimizer, mpi_cache)
+    EulerStep!(optimizer, mpi_cache)
+    #AdaptiveHeunStep!(optimizer, mpi_cache)
 
     if mpi_cache.rank == 0
 
@@ -188,7 +189,7 @@ while times_list[end]<T
         close(list_of_obs)
     
         list_of_obs = open("corr.out", "a")
-        println(list_of_obs, Cxx - mx^2, ",", Cyy - my^2, ",", Czz - mz^2)
+        println(list_of_obs, Cxx, ",", Cyy, ",", Czz)
         close(list_of_obs)
 
         list_of_obs = open("ssf.out", "a")
@@ -211,10 +212,14 @@ while times_list[end]<T
         push!(Mzz_stag_list, M_stag)
         push!(Mzz_mod_list, M_mod)
         
+        σ, _ = eigen(optimizer.optimizer_cache.S)
+        list_of_σ = open("S_evals.out", "a")
+        println(list_of_σ, join(real.(σ), ","))
+        close(list_of_σ)
+
+        save("optimizer.jld", "optimizer", optimizer)
 
         if mod(k,10)==0
-            save("optimizer.jld", "optimizer", optimizer)
-
             p = plot(times_list, mlL2_list, yscale=:log10)
             savefig(p, "mlL2.png")
             p = plot(times_list, mx_list)
@@ -237,6 +242,13 @@ while times_list[end]<T
             savefig(p, "Mzz_stag.png")
             p = plot(times_list, Mzz_mod_list)
             savefig(p, "Mzz_mod.png")
+
+            #S = optimizer.optimizer_cache.S
+            #display(S)
+            #evals, evecs = eigen(S)
+            #display(evals)
+            #sleep(5)
+            #error()
         end
     end
 
