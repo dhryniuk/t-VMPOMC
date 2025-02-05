@@ -107,7 +107,6 @@ end
 
 function MetropolisSweepLeft!(sample::Projector, sweeps::Int64, optimizer::TDVP{T}) where {T<:Complex{<:AbstractFloat}} 
     
-    #sample, acc = MetropolisSweepLeft!(sample, optimizer)
     sample,_ = MetropolisSweepLeft!(sample,optimizer)
 
     # Perform burn_in:

@@ -163,7 +163,6 @@ function TensorSweepLindblad!(sample::Projector, ρ_sample::T, optimizer::TDVP_H
         n = mod1(j, params.uc_size)
         k = mod1(j+params.uc_size, params.N)
 
-
         B1 = copy(ws.L_set[1])
         B2 = copy(ws.L_set[1])
 

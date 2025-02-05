@@ -1,16 +1,12 @@
 module VMPOMC
 
 using LinearAlgebra
-using Distributed
 using TensorOperations
 using SparseArrays
 using ArnoldiMethod
 using Random
 using MPI
-using Serialization
 using Statistics
-#using DelimitedFiles
-
 
 
 #Basic utilities:
@@ -37,13 +33,10 @@ include("Optimisers/optimizer.jl")
 
 
 #Optimizer routines:
-
-#include("Optimisers/MPO/StochasticTDVP.jl")
 include("Optimisers/MPO/StochasticTDVP/TensorSweep.jl")
 include("Optimisers/MPO/StochasticTDVP/Reconfigure.jl")
 include("Optimisers/MPO/StochasticTDVP/TDVPTensor.jl")
 include("Optimisers/MPO/StochasticTDVP/Integrators.jl")
-#include("Optimisers/MPO/ExactTDVP.jl")
 include("Optimisers/MPO/IsingInteractions.jl")
 include("Optimisers/MPO/InitialCondition.jl")
 

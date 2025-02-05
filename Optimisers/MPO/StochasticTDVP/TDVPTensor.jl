@@ -1,6 +1,3 @@
-#export TDVP, TensorComputeGradient!, MPI_mean!, Optimize!
-
-
 function Initialize!(optimizer::TDVP{T}) where {T<:Complex{<:AbstractFloat}}
     optimizer.sampler = MetropolisSampler(optimizer.sampler.N_MC, optimizer.sampler.burn, optimizer.sampler.sweeps, optimizer.params) # resets samples lists!
     optimizer.optimizer_cache = TDVPCache(optimizer.mpo.A, optimizer.params)
@@ -38,13 +35,10 @@ end
 
 function UpdateSR!(optimizer::TDVP{T}) where {T<:Complex{<:AbstractFloat}}
     S::Array{T,2} = optimizer.optimizer_cache.S
-    avg_G::Vector{T} = optimizer.optimizer_cache.avg_G
     params::Parameters = optimizer.params
     ws = optimizer.workspace
     
     G::Vector{T} = reshape(ws.Δ,params.uc_size*4*params.χ^2)
-    #conj_G = conj(G)
-    avg_G .+= G
     #BLAS.herk!('U', 'N', 1.0, transpose(G), 1.0, ws.plus_S) 
     mul!(ws.plus_S,conj.(G),transpose(G)) ### VERY EXPENSIVE
     #BLAS.axpy!(1.0, ws.plus_S, S)
@@ -69,9 +63,7 @@ function MPI_mean!(optimizer::TDVP{T}, mpi_cache) where {T<:Complex{<:AbstractFl
     params = optimizer.params
 
     MPI.Allreduce!(par_cache.L∂L, +, comm)
-    MPI.Allreduce!(par_cache.ΔLL, +, comm)
     MPI.Allreduce!(par_cache.S, +, comm)
-    MPI.Allreduce!(par_cache.avg_G, +, comm)
 
     mlL = [par_cache.mlL]
     MPI.Reduce!(mlL, +, comm, root=0)
@@ -82,12 +74,9 @@ function MPI_mean!(optimizer::TDVP{T}, mpi_cache) where {T<:Complex{<:AbstractFl
     if mpi_cache.rank == 0
         par_cache.mlL = mlL[1]/nworkers
         par_cache.L∂L./=nworkers
-        par_cache.ΔLL./=nworkers
         par_cache.S./=nworkers
-        par_cache.avg_G./=nworkers
         par_cache.acceptance=acceptance[1]/nworkers
     end
-
 
     # Gather sampled local estimators and gradients:
 
@@ -110,8 +99,6 @@ function MPI_mean!(optimizer::TDVP{T}, mpi_cache) where {T<:Complex{<:AbstractFl
     return concat_estimators, concat_gradients
 end
 
-#function TensorUpdate!(optimizer::TDVP{T}, sample::Projector) where {T<:Complex{<:AbstractFloat}}
-#function TensorUpdate!(optimizer::TDVP{T}, sample::Projector, local_estimators, gradients) where {T<:Complex{<:AbstractFloat}}
 function TensorUpdate!(optimizer::TDVP{T}, sample::Projector, n::Int64) where {T<:Complex{<:AbstractFloat}}
     params=optimizer.params
     mpo=optimizer.mpo
@@ -131,15 +118,11 @@ function TensorUpdate!(optimizer::TDVP{T}, sample::Projector, n::Int64) where {T
 
     #Add in Ising interaction terms:
     l_int = IsingInteractionEnergy(optimizer.ising_op, sample, optimizer)
-
     local_L += local_L_int
     local_L += l_int
 
     #Update joint ensemble average:
     data.L∂L.+=local_L*conj(ws.Δ)
-
-    #Update disjoint ensemble average:
-    data.ΔLL.+=conj(ws.Δ)
 
     #Mean local Lindbladian:
     data.mlL += local_L
@@ -147,26 +130,24 @@ function TensorUpdate!(optimizer::TDVP{T}, sample::Projector, n::Int64) where {T
 
     optimizer.sampler.estimators[n] = copy(local_L)
     optimizer.sampler.gradients[n,:] = reshape(ws.Δ,4*params.χ^2*params.uc_size)
+
+    S = optimizer.optimizer_cache.S
+    
+    G::Vector{T} = reshape(ws.Δ,params.uc_size*4*params.χ^2)
+    #BLAS.herk!('U', 'N', 1.0, transpose(G), 1.0, ws.plus_S) 
+    mul!(ws.plus_S,conj.(G),transpose(G)) ### VERY EXPENSIVE
+    #BLAS.axpy!(1.0, ws.plus_S, S)
+    @inbounds S .+= ws.plus_S ### MOST EXPENSIVE
 end
 
 function TensorComputeGradient!(optimizer::TDVP{T}) where {T<:Complex{<:AbstractFloat}}
-#function TensorComputeGradient!(optimizer::TDVP{T}, local_estimators, gradients) where {T<:Complex{<:AbstractFloat}}
     Initialize!(optimizer)
     sample = optimizer.workspace.sample
     sample = MPO_Metropolis_burn_in!(optimizer)
 
     for n in 1:optimizer.sampler.N_MC
-
-        #Generate sample:
         sample, acc = MetropolisSweepLeft!(sample, optimizer.sampler.sweeps, optimizer)
-        #sample, acc = MetropolisSweepLeft!(sample, 5, optimizer)
         optimizer.optimizer_cache.acceptance += acc/(optimizer.params.N*optimizer.sampler.N_MC)
-
-        #Compute local estimators:
-        #TensorUpdate!(optimizer, sample) 
         TensorUpdate!(optimizer, sample, n)
-
-        #Update metric tensor:
-        UpdateSR!(optimizer)
     end
 end

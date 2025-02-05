@@ -57,9 +57,6 @@ function CompetingIsing(params::Parameters)
     K1 = Kac_norm(params.N, params.α1)
     α2 = params.α2
     K2 = Kac_norm(params.N, params.α2)
-    #println(K1)
-    #println(K2)
-    #error()
     return CompetingIsing(α1,K1,α2,K2)
 end
 

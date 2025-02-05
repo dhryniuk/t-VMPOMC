@@ -44,7 +44,7 @@ params = Parameters(N,χ,Jx,Jy,Jz,J1,J2,hx,hz,γ,γ_d,α1,α2,uc_size)
 #Define one-body Lindbladian operator:
 l1 = make_one_body_Lindbladian(hx*sx+hz*sz, sqrt(γ)*sm)
 
-mpo = MPO("y", params, mpi_cache)
+mpo = MPO("-y", params, mpi_cache)
 
 #Define sampler and optimizer:
 sampler = MetropolisSampler(N_MC, burn_in, sweeps, params)
@@ -55,7 +55,7 @@ NormalizeMPO!(params, optimizer)
 last_iteration_step = 1
 
 #Save parameters to file:
-dir = "LRIsing_1D_uc$(uc_size)_chi$(χ)_N$(N)_J1$(J1)_α1$(α1)_J2$(J2)_α2$(α2)_hx$(hx)_hz$(hz)_γ$(γ)"
+dir = "results/LRIsing_1D_uc$(uc_size)_chi$(χ)_N$(N)_J1$(J1)_α1$(α1)_J2$(J2)_α2$(α2)_hx$(hx)_hz$(hz)_γ$(γ)"
 if mpi_cache.rank == 0
     if isdir(dir)==true
         cd(dir)
