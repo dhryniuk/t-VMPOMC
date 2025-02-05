@@ -6,7 +6,6 @@ abstract type MatrixProductOperator{T<:Complex{<:AbstractFloat}} end
 
 mutable struct MPO{T} <: MatrixProductOperator{T}
     A::Array{T,4}
-    #uc_size::Int64
 end
 
 function Base.similar(mpo::MPO)
