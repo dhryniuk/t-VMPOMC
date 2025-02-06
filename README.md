@@ -8,7 +8,7 @@
    - Required Julia packages (as specified in `Project.toml`)
 4. **Installation:**
    Simply download the source files.
-6. **Running an Example:**  
+6. **Example simulation:**  
    To run an example simulation for a spin chain with drive, long-ranged competing Ising interactions and incoherent decay, execute:
    ```sh
    julia spin_chain_demo.jl
