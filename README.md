@@ -2,7 +2,7 @@
 
 1. **Prerequisites:**  
    - Julia
-   - MPI
+   - An MPI library
    - Required Julia packages (as specified in `Project.toml`)
 
 2. **Running an Example:**  
@@ -10,4 +10,9 @@
    ```sh
    julia spin_chain_demo.jl
    ```
+   This script can be executed more efficiently by leveraging multiple processes. To do this, run
+      ```sh
+   mpirun -np X julia spin_chain_demo.jl
+   ```
+      where X is chosen the number of MPI workers.
    Refer to the comments in the file above for further explanation on simulation setup, key functions, and (hyper)parameters.
