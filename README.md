@@ -1,13 +1,15 @@
 # t-VMPOMC: time-dependent variational MPO Monte Carlo
 
 1. **Overview:**
+t-VMPOMC is a Julia-based method for efficient and scalable simulation of the dynamics of open quantum lattices. It relies on solving the variational equations of motion efficiently by means of Monte Carlo, employing compact matrix product operator (MPO) trial states for the many-body density matrix.
+
 2. **Core functionalities:**
 3. **Prerequisites:**  
    - Julia
    - A MPI library
    - Required Julia packages (as specified in `Project.toml`)
 4. **Installation:**
-   Simply download the source files.
+   
 6. **Example simulation:**  
    To run an example simulation for a spin chain with drive, long-ranged competing Ising interactions and incoherent decay, execute:
    ```sh
