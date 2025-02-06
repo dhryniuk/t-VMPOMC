@@ -1,4 +1,4 @@
-# t-VMPOMC: time-dependent variational matrix product operator Monte Carlo
+# t-VMPOMC: time-dependent variational MPO Monte Carlo
 
 1. **Overview:**
 2. **Core functionalities:**
