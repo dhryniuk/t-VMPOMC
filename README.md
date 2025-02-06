@@ -14,5 +14,5 @@
       ```sh
    mpirun -np X julia spin_chain_demo.jl
    ```
-      where X is chosen the number of MPI workers.
+      where X is a chosen the number of MPI workers.
    Refer to the comments in the file above for further explanation on problem and simulation setup, key functions, and required (hyper)parameters.
