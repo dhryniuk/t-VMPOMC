@@ -10,7 +10,7 @@
    ```sh
    julia spin_chain_demo.jl
    ```
-   This script can be executed more efficiently by leveraging multiple processes. To do this, run
+   This script can be executed more efficiently by leveraging multiple processes. To do this, execute:
       ```sh
    mpirun -np X julia spin_chain_demo.jl
    ```
