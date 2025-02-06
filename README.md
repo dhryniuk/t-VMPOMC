@@ -2,7 +2,7 @@
 
 1. **Prerequisites:**  
    - Julia
-   - An MPI library
+   - A MPI library
    - Required Julia packages (as specified in `Project.toml`)
 
 2. **Running an Example:**  
