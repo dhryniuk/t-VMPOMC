@@ -15,7 +15,7 @@ t-VMPOMC is a Julia-based method for efficient and scalable simulation of the dy
    ```sh
    julia spin_chain_demo.jl
    ```
-   The above measures the dynamics of the site-averaged mangetizations of the spin chain, saving the measurements to `magentizations.out`.
+   The above measures the dynamics of the site-averaged mangetizations of the spin chain, saving the measurements to `magentizations.out`. For the set parameter values, the simulation should be completed within one minute on a modern PC.
    This simulation can be completed more efficiently by leveraging multiple parallel processes. To do this, execute:
       ```sh
    mpirun -np X julia spin_chain_demo.jl
