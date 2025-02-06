@@ -3,8 +3,6 @@ export Parameters
 
 mutable struct Parameters
     N::Int64
-    dim_H::Int64
-    dim_L::Int64
     χ::Int64
     Jx::Float64
     Jy::Float64
@@ -23,8 +21,6 @@ end
 Base.display(params::Parameters) = begin
     println("\nParameters:")
     println("N\t\t\t", params.N)
-    println("dim_H\t\t\t", params.dim_H)
-    println("dim_L\t\t\t", params.dim_L)
     println("χ\t\t\t", params.χ)
     println("uc_size\t\t", params.uc_size)
     println("Jx\t\t\t", params.Jx)
@@ -38,10 +34,4 @@ Base.display(params::Parameters) = begin
     println("γ_d\t\t\t", params.γ_d)
     println("α1\t\t\t", params.α1)
     println("α2\t\t\t", params.α2)
-end
-
-#write a constructor that defaults to 0 whenever some parameter is not specified...
-
-function Parameters(N,χ,Jx,Jy,Jz,J1,J2,hx,hz,γ,γ_d,α1,α2,uc_size)
-    return Parameters(N,2^N,2^(2*N),χ,Jx,Jy,Jz,J1,J2,hx,hz,γ,γ_d,α1,α2,uc_size)
 end

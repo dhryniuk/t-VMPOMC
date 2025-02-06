@@ -1,4 +1,4 @@
-export tensor_magnetization, tensor_purity, tensor_correlation, tensor_cummulant, C2, squared_magnetization, squared_staggered_magnetization, modulated_magnetization, Nagy_structure_factor
+export tensor_magnetization, measure_magnetizations, tensor_purity, tensor_correlation, tensor_cummulant, C2, squared_magnetization, squared_staggered_magnetization, modulated_magnetization, Nagy_structure_factor
 
 
 function tensor_magnetization(site, params::Parameters, mpo::MPO{ComplexF64}, op::Array{ComplexF64})
@@ -15,6 +15,16 @@ function tensor_magnetization(site, params::Parameters, mpo::MPO{ComplexF64}, op
         end
     end
     return @tensor B[a,a]
+end
+
+function measure_magnetizations(params, mpo)
+    mx, my, mz = 0.0, 0.0, 0.0
+    for n in 1:params.uc_size
+        mx += real(tensor_magnetization(n, params, mpo, sx))
+        my += real(tensor_magnetization(n, params, mpo, sy))
+        mz += real(tensor_magnetization(n, params, mpo, sz))
+    end
+    return mx/params.uc_size, my/params.uc_size, mz/params.uc_size
 end
 
 function tensor_purity(params::Parameters, mpo::MPO{ComplexF64})
