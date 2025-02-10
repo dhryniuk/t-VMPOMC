@@ -26,4 +26,5 @@ t-VMPOMC is a Julia-based method for efficient and scalable simulation of the dy
       where X is a chosen the number of MPI workers.
    Refer to the comments in the file above for further explanation on problem and simulation setup, key functions, and required (hyper)parameters.
 
-6. **Example cluster simulation:** 
+6. **Example cluster simulation:**
+   The script provides a minimal example cluster simulation on the Sun Grid Engine
