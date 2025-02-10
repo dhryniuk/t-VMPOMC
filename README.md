@@ -9,6 +9,7 @@ t-VMPOMC is a Julia-based method for efficient and scalable simulation of the dy
    - A MPI library
    - Required Julia packages (as specified in `Project.toml`)
 4. **Installation:**
+   Simply clone the repository above after making sure you installed the above prerequisites.
    
 6. **Example simulation:**  
    To run an example simulation for a spin chain with drive, long-ranged competing Ising interactions and incoherent decay, execute:
