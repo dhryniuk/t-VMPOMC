@@ -27,8 +27,8 @@ t-VMPOMC is a Julia-based method for efficient and scalable simulation of the dy
    Refer to the comments in the file above for further explanation on problem and simulation setup, key functions, and required (hyper)parameters.
 
 6. **Example cluster simulation:**
-   The pair of scripts `submit_Heisenberg.sh` and `Heisenberg_spin_chain.jl` constitute a simple example cluster simulation that can be run on a Sun Grid Engine server, and can be used to directly reproduce the t-VMPOMC results from Fig. 3 in the paper. To run it, simple execute the bash script:
+   The pair of scripts `submit_Heisenberg.sh` and `Heisenberg_spin_chain.jl` constitute a simple example cluster simulation that can be run on a Sun Grid Engine server, and can be used to directly reproduce the t-VMPOMC results from Fig. 3 in the paper. To run it, simply submit the job:
       ```sh
-   sh submit_Heisenberg.sh
+   qsub submit_Heisenberg.sh
    ```
    
