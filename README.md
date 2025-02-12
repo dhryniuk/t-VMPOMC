@@ -16,12 +16,12 @@ t-VMPOMC is a Julia-based method for efficient and scalable simulation of the dy
 5. **Example simulation:**  
    To run an example simulation for a spin chain with drive, long-ranged competing Ising interactions and incoherent decay, execute:
    ```sh
-   julia spin_chain_demo.jl
+   julia Examples/spin_chain_demo.jl
    ```
    The above measures the dynamics of the site-averaged mangetizations of the spin chain, saving the measurements to `magentizations.out`, with corresponding simulation times saved to `times.out`. For the set parameter values, the simulation should be completed within one minute on a modern PC.
-   This simulation can be completed more efficiently by leveraging multiple parallel processes. To do this, execute:
+   This simulation can be completed more efficiently parallelized over multiple CPUs. To do this, execute:
       ```sh
-   mpirun -np X julia spin_chain_demo.jl
+   mpirun -np X julia Examples/spin_chain_demo.jl
    ```
       where X is a chosen the number of MPI workers.
    Refer to the comments in the file above for further explanation on problem and simulation setup, key functions, and required (hyper)parameters.
