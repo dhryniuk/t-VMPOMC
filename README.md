@@ -7,8 +7,8 @@ t-VMPOMC is a Julia-based method for efficient and scalable simulation of the dy
 
 3. **Prerequisites:**  
    - Julia
-   - A MPI library
    - Required Julia packages (as specified in `Project.toml`)
+   - A MPI library
   
 4. **Installation:**
    Simply clone the repository above after making sure you installed the above prerequisites.
