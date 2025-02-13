@@ -5,7 +5,7 @@ t-VMPOMC is a Julia-based method for efficient and scalable simulation of the dy
 
 2. **Core functionalities:**
    The current version supports lattices with local Hilbert spaces of dimension 2 (two-level systems).
-   MPO: defined by bond dimension
+   MPO: defined by bond dimension and unit cell size
 
 4. **Prerequisites:**  
    - Julia
