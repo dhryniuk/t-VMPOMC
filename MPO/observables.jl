@@ -17,7 +17,7 @@ function tensor_magnetization(site, params::Parameters, mpo::MPO{ComplexF64}, op
     return @tensor B[a,a]
 end
 
-function measure_magnetizations(params, mpo)
+function measure_magnetizations(params::Parameters, mpo::MPO{ComplexF64})
     mx, my, mz = 0.0, 0.0, 0.0
     for n in 1:params.uc_size
         mx += real(tensor_magnetization(n, params, mpo, sx))

@@ -59,9 +59,12 @@ function Reconfigure!(optimizer::TDVP{ComplexF64}, local_estimators::Vector{Comp
     σ, _ = eigen(data.S)
     λ = 2*abs(minimum(real.(σ)))
 
+    #flat_grad = inv(data.S + (λ+optimizer.ϵ_shift)*Matrix{Int}(I, size(data.S)))*flat_grad
+
     # ϵ-shift regulator:
     σ, V = eigen(data.S + (λ+optimizer.ϵ_shift)*Matrix{Int}(I, size(data.S)))
     flat_grad = V'*flat_grad
+    #flat_grad = V'*flat_grad*V
 
     # Moore-Penrose pseudoinverse regulator:
     if optimizer.ϵ_SNR!=0.0

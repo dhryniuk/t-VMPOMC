@@ -12,17 +12,17 @@ using JLD
 mpi_cache = set_mpi()
 
 #Set parameters:
-Jx= 0.0 #interaction strength
-Jy= 0.0 #interaction strength
+Jx= 1.0 #interaction strength
+Jy= 0.9 #interaction strength
 Jz= 0.0 #interaction strength
-J1= 0.5 #interaction strength
-J2= 0.0#-1.0 #interaction strength
-hx= 0.5 #transverse field strength
-hz= 0.0 #longitudinal field strength
+J1= 1.2 #interaction strength
+J2= 0.0 #interaction strength
+hx= 0.0 #transverse field strength
+hz= 1.0 #longitudinal field strength
 γ = 1.0 #spin decay rate
 N = parse(Int64,ARGS[1]) #number of spins
-α1 = 3.0
-α2 = 6.0
+α1 = 9999.0
+α2 = 9999.0
 γ_d = 0
 
 #Set hyperparameters:
@@ -37,26 +37,27 @@ T = parse(Float64,ARGS[5])
 ϵ_tol = parse(Float64,ARGS[8])
 max_τ = parse(Float64,ARGS[9])
 ising_int = "Ising"
-#ising_int = "CompetingIsing"
 τ = 10^(-8)
 
 params = Parameters(N,χ,Jx,Jy,Jz,J1,J2,hx,hz,γ,γ_d,α1,α2,uc_size)
 
 #Define one-body Lindbladian operator:
 l1 = make_one_body_Lindbladian(hx*sx+hz*sz, sqrt(γ)*sm)
+l2 = Jx*make_two_body_Lindblad_Hamiltonian(sx, sx) + Jy*make_two_body_Lindblad_Hamiltonian(sy, sy)# + Jz*make_two_body_Lindblad_Hamiltonian(sz, sz)
+l2 = reshape(l2, 4,4,4,4)
 
-mpo = MPO("-y", params, mpi_cache)
+mpo = MPO("x", params, mpi_cache)
 
 #Define sampler and optimizer:
 sampler = MetropolisSampler(N_MC, burn_in, sweeps, params)
-optimizer = TDVP(sampler, mpo, l1, τ, ϵ_shift, ϵ_SNR, ϵ_tol, params, ising_int)
+optimizer = TDVP(sampler, mpo, l1, l2, τ, ϵ_shift, ϵ_SNR, ϵ_tol, params, ising_int)
 NormalizeMPO!(params, optimizer)
 
 
 last_iteration_step = 1
 
 #Save parameters to file:
-dir = "results/LRIsing_1D_uc$(uc_size)_chi$(χ)_N$(N)_J1$(J1)_α1$(α1)_J2$(J2)_α2$(α2)_hx$(hx)_hz$(hz)_γ$(γ)"
+dir = "XYZ_1D_uc$(uc_size)_chi$(χ)_N$(N)_J1$(J1)_α1$(α1)_J2$(J2)_α2$(α2)_hx$(hx)_hz$(hz)_γ$(γ)"
 if mpi_cache.rank == 0
     if isdir(dir)==true
         cd(dir)
@@ -69,14 +70,6 @@ if mpi_cache.rank == 0
     end
 end
 
-MPI.Barrier(mpi_cache.comm)
-if mpi_cache.rank != 0
-    cd(dir)
-end
-MPI.bcast(last_iteration_step, 0, mpi_cache.comm)
-MPI.bcast(optimizer.τ, 0, mpi_cache.comm)
-MPI.Bcast!(optimizer.mpo.A, 0, mpi_cache.comm)
-
 
 if mpi_cache.rank == 0 && last_iteration_step == 1
     
@@ -88,7 +81,17 @@ if mpi_cache.rank == 0 && last_iteration_step == 1
     display(optimizer)
     close(list_of_parameters)
 
-    mx, my, mz = measure_magnetizations(params, mpo)
+    mx = 0.0
+    my = 0.0
+    mz = 0.0
+    for n in 1:uc_size
+        global mx += real.( tensor_magnetization(n,params,mpo,sx) )
+        global my += real.( tensor_magnetization(n,params,mpo,sy) )
+        global mz += real.( tensor_magnetization(n,params,mpo,sz) )
+    end
+    mx/=uc_size
+    my/=uc_size
+    mz/=uc_size
 
     list_of_C = open("C.out", "a")
     println(list_of_C, real(optimizer.optimizer_cache.mlL2)/N)
@@ -128,28 +131,41 @@ if mpi_cache.rank == 0 && last_iteration_step == 1
 end
 
 MPI.Barrier(mpi_cache.comm)
-#Random.seed!(mpi_cache.rank)
+if mpi_cache.rank != 0
+    cd(dir)
+end
+MPI.bcast(last_iteration_step, 0, mpi_cache.comm)
+MPI.bcast(optimizer.τ, 0, mpi_cache.comm)
+MPI.Bcast!(optimizer.mpo.A, 0, mpi_cache.comm)
 
 current_time::Float64 = parse(Float64, readlines("times.out")[end])
 while current_time<T
 
     global last_iteration_step+=1
 
-    Random.seed!(mpi_cache.rank)
     #EulerStep!(optimizer, mpi_cache)
     AdaptiveHeunStepCapped!(max_τ, optimizer, mpi_cache)
 
     if mpi_cache.rank == 0
-    
-        save("optimizer.jld", "optimizer", optimizer)
 
         mpo = optimizer.mpo
+        mx=0.0
+        my=0.0
+        mz=0.0
+        for n in 1:uc_size
+            mx += real.( tensor_magnetization(n,params,mpo,sx) )
+            my += real.( tensor_magnetization(n,params,mpo,sy) )
+            mz += real.( tensor_magnetization(n,params,mpo,sz) )
+        end
+        mx/=uc_size
+        my/=uc_size
+        mz/=uc_size
+    
+        save("optimizer.jld", "optimizer", optimizer)
 
         list_of_C = open("C.out", "a")
         println(list_of_C, real(optimizer.optimizer_cache.mlL2)/N)
         close(list_of_C)
-
-        mx, my, mz = measure_magnetizations(params, mpo)
     
         list_of_obs = open("obs.out", "a")
         println(list_of_obs, mx, ",", my, ",", mz)
@@ -186,8 +202,6 @@ while current_time<T
 
         save("optimizer_backup.jld", "optimizer", optimizer)
     end
-
-    sleep(10)
 
     GC.gc()
 end

@@ -4,6 +4,7 @@ export EulerStep!, AdaptiveHeunStep!, AdaptiveHeunStepCapped!
 function EulerIntegrate!(τ::Float64, optimizer::TDVP{T}, mpi_cache) where {T<:Complex{<:AbstractFloat}}
     A = optimizer.mpo.A
 
+    TensorComputeGradient!(optimizer)
     estimators, gradients = MPI_mean!(optimizer, mpi_cache)
     if mpi_cache.rank == 0
         Finalize!(optimizer)
@@ -38,7 +39,6 @@ function HeunIntegrate!(y::Array, δ::Float64, optimizer::TDVP{T}, mpi_cache) wh
     TensorComputeGradient!(opt_1)
     estimators, gradients = MPI_mean!(opt_1, mpi_cache)
     if mpi_cache.rank == 0
-        
         Finalize!(opt_1)
         Reconfigure!(opt_1, estimators, gradients)
     end

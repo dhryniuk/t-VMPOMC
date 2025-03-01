@@ -53,6 +53,9 @@ function Finalize!(optimizer::TDVP{T}) where {T<:Complex{<:AbstractFloat}}
     data.mlL /= N_MC
     data.mlL2 /= N_MC
     data.ΔLL .*= data.mlL
+
+    #display(data.ΔLL)
+    #sleep(1000)
 end
 
 function MPI_mean!(optimizer::TDVP{T}, mpi_cache) where {T<:Complex{<:AbstractFloat}}
