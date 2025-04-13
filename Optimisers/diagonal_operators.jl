@@ -15,6 +15,11 @@ struct LongRangeIsing <: IsingInteraction
     Kac_norm::Float64
 end
 
+struct LongRangeRydberg <: IsingInteraction
+    α::Float64
+    Kac_norm::Float64
+end
+
 struct CompetingIsing <: IsingInteraction
     α1::Float64
     Kac_norm1::Float64
@@ -46,10 +51,17 @@ function Kac_norm(N, α)
 end
 
 function LongRangeIsing(params::Parameters)
-    α = params.α
+    α = params.α1
     #K = 1
-    K = Kac_norm(params.N, params.α)
+    K = Kac_norm(params.N, params.α1)
     return LongRangeIsing(α,K)
+end
+
+function LongRangeRydberg(params::Parameters)
+    α = params.α1
+    #K = 1
+    K = Kac_norm(params.N, params.α1)
+    return LongRangeRydberg(α,K)
 end
 
 function CompetingIsing(params::Parameters)

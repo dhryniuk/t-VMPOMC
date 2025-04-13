@@ -90,6 +90,8 @@ function TDVP(sampler::MetropolisSampler, mpo::MPO{T}, l1::Matrix{T}, τ::Float6
         optimizer = TDVPl1(mpo, sampler, TDVPCache(mpo.A, params), l1, Ising(), LocalDephasing(), params, τ, ϵ_shift, ϵ_SNR, ϵ_tol, set_workspace(mpo.A, params))
     elseif ising_int=="LRIsing"
         optimizer = TDVPl1(mpo, sampler, TDVPCache(mpo.A, params), l1, LongRangeIsing(params), LocalDephasing(), params, τ, ϵ_shift, ϵ_SNR, ϵ_tol, set_workspace(mpo.A, params))
+    elseif ising_int=="LongRangeRydberg"
+        optimizer = TDVPl1(mpo, sampler, TDVPCache(mpo.A, params), l1, LongRangeRydberg(params), LocalDephasing(), params, τ, ϵ_shift, ϵ_SNR, ϵ_tol, set_workspace(mpo.A, params))
     elseif ising_int=="CompetingIsing"
         optimizer = TDVPl1(mpo, sampler, TDVPCache(mpo.A, params), l1, CompetingIsing(params), LocalDephasing(), params, τ, ϵ_shift, ϵ_SNR, ϵ_tol, set_workspace(mpo.A, params))
     elseif ising_int=="SquareIsing"

@@ -33,6 +33,26 @@ function IsingInteractionEnergy(ising_op::LongRangeIsing, sample::Projector, opt
     return -1.0im*params.J1*l_int/ising_op.Kac_norm
 end
 
+function IsingInteractionEnergy(ising_op::LongRangeRydberg, sample::Projector, optimizer::Optimizer{T}) where {T<:Complex{<:AbstractFloat}} 
+    A = optimizer.mpo.A
+    params = optimizer.params
+
+    l_int_ket::T = 0.0
+    l_int_bra::T = 0.0
+    l_int::T = 0.0
+    for i::Int16 in 1:params.N-1
+        for j::Int16 in i+1:params.N
+            l_int_ket = (1-sample.ket[i])*(1-sample.ket[j])
+            l_int_bra = (1-sample.bra[i])*(1-sample.bra[j])
+            #l_int_ket = sample.ket[i]*sample.ket[j]
+            #l_int_bra = sample.bra[i]*sample.bra[j]
+            dist = min(abs(i-j), abs(params.N+i-j))^ising_op.α
+            l_int += (l_int_ket-l_int_bra)/dist
+        end
+    end
+    return -1.0im*params.J1*l_int#/ising_op.Kac_norm
+end
+
 function IsingInteractionEnergy(ising_op::CompetingIsing, sample::Projector, optimizer::Optimizer{T}) where {T<:Complex{<:AbstractFloat}} 
     A = optimizer.mpo.A
     params = optimizer.params

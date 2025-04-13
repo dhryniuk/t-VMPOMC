@@ -85,8 +85,9 @@ function AdaptiveHeunStep!(optimizer::TDVP{T}, mpi_cache) where {T<:Complex{<:Ab
     τ_adjusted = τ*(optimizer.ϵ_tol/delta)^(1/3)
     optimizer.τ = τ_adjusted
 
-    _, optimizer = HeunIntegrate!(optimizer.mpo.A, optimizer.τ/2, optimizer, mpi_cache)
-    _, optimizer = HeunIntegrate!(optimizer.mpo.A, optimizer.τ/2, optimizer, mpi_cache)
+    #_, optimizer = HeunIntegrate!(optimizer.mpo.A, optimizer.τ/2, optimizer, mpi_cache)
+    #_, optimizer = HeunIntegrate!(optimizer.mpo.A, optimizer.τ/2, optimizer, mpi_cache)
+    _, optimizer = HeunIntegrate!(optimizer.mpo.A, optimizer.τ, optimizer, mpi_cache)
 end
 
 function AdaptiveHeunStepCapped!(max_τ::Float64, optimizer::TDVP{T}, mpi_cache) where {T<:Complex{<:AbstractFloat}}
@@ -105,6 +106,7 @@ function AdaptiveHeunStepCapped!(max_τ::Float64, optimizer::TDVP{T}, mpi_cache)
     τ_adjusted = τ*(optimizer.ϵ_tol/delta)^(1/3)
     optimizer.τ = min(τ_adjusted, max_τ)
 
-    _, optimizer = HeunIntegrate!(optimizer.mpo.A, optimizer.τ/2, optimizer, mpi_cache)
-    _, optimizer = HeunIntegrate!(optimizer.mpo.A, optimizer.τ/2, optimizer, mpi_cache)
+    #_, optimizer = HeunIntegrate!(optimizer.mpo.A, optimizer.τ/2, optimizer, mpi_cache)
+    #_, optimizer = HeunIntegrate!(optimizer.mpo.A, optimizer.τ/2, optimizer, mpi_cache)
+    _, optimizer = HeunIntegrate!(optimizer.mpo.A, optimizer.τ, optimizer, mpi_cache)
 end

@@ -1,6 +1,6 @@
 export make_one_body_Lindbladian, make_two_body_Lindblad_Hamiltonian, ⊗, id, sx, sy, sz, sp, sm, generate_bit_basis
 
-export smx, sp_smx, spx
+export smx, sp_smx, spx, n_op, sp_n_op
 
 #Basis type alias:
 Basis = Vector{Vector{Bool}}
@@ -24,6 +24,9 @@ sp_sp = sparse(sp)
 sp_sm = sparse(sm)
 
 sp_smx = sparse(smx)
+
+n_op = 0.5*(id + sz)
+sp_n_op = sparse(n_op)
 
 
 #Useful dictionaries:

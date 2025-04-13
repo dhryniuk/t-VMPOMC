@@ -16,7 +16,7 @@ Jx= 0.0 #interaction strength
 Jy= 0.0 #interaction strength
 Jz= 0.0 #interaction strength
 J1= 0.5 #interaction strength
-J2= 0.0#-1.0 #interaction strength
+J2= -1.0 #interaction strength
 hx= 0.5 #transverse field strength
 hz= 0.0 #longitudinal field strength
 γ = 1.0 #spin decay rate
@@ -36,8 +36,8 @@ T = parse(Float64,ARGS[5])
 ϵ_SNR = parse(Float64,ARGS[7])
 ϵ_tol = parse(Float64,ARGS[8])
 max_τ = parse(Float64,ARGS[9])
-ising_int = "Ising"
-#ising_int = "CompetingIsing"
+#ising_int = "Ising"
+ising_int = "CompetingIsing"
 τ = 10^(-8)
 
 params = Parameters(N,χ,Jx,Jy,Jz,J1,J2,hx,hz,γ,γ_d,α1,α2,uc_size)
@@ -141,7 +141,7 @@ while current_time<T
 
     if mpi_cache.rank == 0
     
-        save("optimizer.jld", "optimizer", optimizer)
+        #save("optimizer.jld", "optimizer", optimizer)
 
         mpo = optimizer.mpo
 
@@ -184,10 +184,10 @@ while current_time<T
         println(list_of_times, current_time)
         close(list_of_times)
 
-        save("optimizer_backup.jld", "optimizer", optimizer)
+        #save("optimizer_backup.jld", "optimizer", optimizer)
     end
 
-    sleep(10)
+    #sleep(10)
 
     GC.gc()
 end
