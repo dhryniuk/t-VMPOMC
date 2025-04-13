@@ -56,6 +56,6 @@ chi=$(sed -n ${task_number}p $PARAM_FILE | awk '{print $2}')
 # 4. Number of samples
 # 5. Total evolution time
 # 6-9. Auxiliary hyperparameters (refer to script)
-gerun julia ./scripts/Heisenberg_spin_chain.jl \
+gerun julia ./scripts/XYZ_spin_chain.jl \
     200 "$chi" 1 3000 5.0 \
     1e-12 1e-6 0.1 0.05

@@ -1,10 +1,8 @@
 include("../tVMPOMC.jl")
 using .tVMPOMC
-using NPZ
-using Plots
-using LinearAlgebra
-import Random
 using MPI
+using Plots
+import Random
 using Dates
 using JLD
 
