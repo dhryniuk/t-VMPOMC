@@ -8,7 +8,7 @@ function NormalizeMPO!(optimizer::TDVP{T}) where {T<:Complex{<:AbstractFloat}}
     params = optimizer.params
     A = optimizer.mpo.A
     ws = optimizer.workspace
-    
+
     _MPO = ws.ID
     for i in 1:params.N
         n = mod1(i,params.uc_size)
@@ -32,6 +32,111 @@ function NormalizeMPO!(params::Parameters, optimizer::TDVP{T}) where {T<:Complex
     A./=trMPO
     optimizer.mpo.A = A
 end
+
+
+function TraceNormalizeMPO!(optimizer::TDVP{T}) where {T<:Complex{<:AbstractFloat}} 
+    params = optimizer.params
+    A = optimizer.mpo.A
+    ws = optimizer.workspace
+    
+    _MPO = ws.ID
+    for i in 1:params.N
+        n = mod1(i,params.uc_size)
+        _MPO*=(A[n,:,:,1]+A[n,:,:,4])
+    end
+    trMPO = tr(_MPO)^(1/params.N)
+    A./=trMPO
+    optimizer.mpo.A = A
+end
+
+function TraceNormalizeMPO!(params::Parameters, optimizer::TDVP{T}) where {T<:Complex{<:AbstractFloat}} 
+    A = optimizer.mpo.A
+    ws = optimizer.workspace
+    
+    _MPO = ws.ID
+    for i in 1:params.N
+        n = mod1(i,params.uc_size)
+        _MPO*=(A[n,:,:,1]+A[n,:,:,4])
+    end
+    trMPO = tr(_MPO)^(1/params.N)
+    A./=trMPO
+    optimizer.mpo.A = A
+end
+
+export TraceNorm
+
+function TraceNorm(mpo::MPO, optimizer::TDVP{T}) where {T<:Complex{<:AbstractFloat}} 
+    params = optimizer.params
+    A = mpo.A
+    ws = optimizer.workspace
+    
+    _MPO = ws.ID
+    for i in 1:params.N
+        n = mod1(i,params.uc_size)
+        _MPO*=(A[n,:,:,1]+A[n,:,:,4])
+    end
+    trMPO = tr(_MPO)^(1/params.N)
+    return trMPO
+end
+
+function TraceNorm1(A::Array, optimizer::TDVP{T}) where {T<:Complex{<:AbstractFloat}}
+    params = optimizer.params
+    ws = optimizer.workspace
+    
+    _MPO = ws.ID
+        n = 1
+        _MPO*=(A[n,:,:,1]+A[n,:,:,4])
+    trMPO = tr(_MPO)
+    return trMPO
+end
+
+function TraceNorm(A::Array, optimizer::TDVP{T}) where {T<:Complex{<:AbstractFloat}}
+    params = optimizer.params
+    ws = optimizer.workspace
+    
+    _MPO = ws.ID
+    for i in 1:params.N
+        n = mod1(i,params.uc_size)
+        _MPO*=(A[n,:,:,1]+A[n,:,:,4])
+    end
+    trMPO = tr(_MPO)^(1/params.N)
+    return trMPO
+end
+
+"""
+function center_∂MPO!(optimizer::TDVP{T}) where {T<:Complex{<:AbstractFloat}}
+    uncentered_∂ = optimizer.workspace.∂
+    _MPO = optimizer.workspace.ID
+    for i in 1:optimizer.params.N
+        n = mod1(i, optimizer.params.uc_size)
+        _MPO *= (uncentered_∂[n, :,:, 1] + uncentered_∂[n, :,:, 4])
+    end
+    tr_uncentered_∂ = tr(_MPO)^(1/optimizer.params.N)
+    centered_∂ = uncentered_∂ .- tr_uncentered_∂ * optimizer.mpo.A
+    optimizer.workspace.∂ = centered_∂
+    display("Centered derivative trace: ")
+    display(TraceNorm(centered_∂, optimizer))
+    sleep(5)
+end
+"""
+
+function center_∂MPO!(optimizer::TDVP{T}) where {T<:Complex{<:AbstractFloat}}
+    uncentered_∂ = optimizer.workspace.∂#.^(1/optimizer.params.N)
+    tr_uncentered_∂ = TraceNorm1(uncentered_∂, optimizer)
+    centered_∂ = uncentered_∂ .- tr_uncentered_∂ .* optimizer.mpo.A
+    #centered_∂ = uncentered_∂ .- tr_uncentered_∂ .* optimizer.workspace.ID
+    optimizer.workspace.∂ = centered_∂
+
+    #display(TraceNorm1(uncentered_∂, optimizer))
+    #display(tr_uncentered_∂)
+    #display(TraceNorm1(optimizer.mpo.A, optimizer))
+    #display(TraceNorm(optimizer.mpo.A, optimizer))
+    #display(TraceNorm1(centered_∂, optimizer))
+    #display(TraceNorm(centered_∂, optimizer))
+    #display(".")
+    #sleep(5)
+end
+
 
 function UpdateSR!(optimizer::TDVP{T}) where {T<:Complex{<:AbstractFloat}}
     S::Array{T,2} = optimizer.optimizer_cache.S
@@ -118,11 +223,11 @@ function TensorUpdate!(optimizer::TDVP{T}, sample::Projector, n::Int64) where {T
 
     #Sweep lattice:
     local_L, local_L_int = TensorSweepLindblad!(sample, ρ_sample, optimizer)
+    local_L += local_L_int
 
     #Add in Ising interaction terms:
     l_int = IsingInteractionEnergy(optimizer.ising_op, sample, optimizer)
-    local_L += local_L_int
-    local_L += l_int
+    #local_L += l_int
 
     #Update joint ensemble average:
     data.L∂L.+=local_L*conj(ws.Δ)

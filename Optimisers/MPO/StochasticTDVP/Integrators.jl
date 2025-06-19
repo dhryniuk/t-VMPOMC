@@ -5,15 +5,17 @@ function EulerIntegrate!(τ::Float64, optimizer::TDVP{T}, mpi_cache) where {T<:C
     A = optimizer.mpo.A
 
     TensorComputeGradient!(optimizer)
+    #center_∂MPO!(optimizer)
     estimators, gradients = MPI_mean!(optimizer, mpi_cache)
     if mpi_cache.rank == 0
         Finalize!(optimizer)
-
+        #center_∂MPO!(optimizer)
         Reconfigure!(optimizer, estimators, gradients)
         ∇  = optimizer.optimizer_cache.∇
         
         optimizer.mpo.A += τ * ∇
-        NormalizeMPO!(optimizer.params, optimizer)
+        NormalizeMPO!(optimizer)
+        #NormalizeMPO!(optimizer.params, optimizer)
     end
     MPI.Bcast!(optimizer.mpo.A, 0, mpi_cache.comm)
     MPI.Bcast!(optimizer.optimizer_cache.∇, 0, mpi_cache.comm)
@@ -37,9 +39,11 @@ function HeunIntegrate!(y::Array, δ::Float64, optimizer::TDVP{T}, mpi_cache) wh
     # k1:
     opt_1 = deepcopy(optimizer)
     TensorComputeGradient!(opt_1)
+    #center_∂MPO!(opt_1)
     estimators, gradients = MPI_mean!(opt_1, mpi_cache)
     if mpi_cache.rank == 0
         Finalize!(opt_1)
+        #center_∂MPO!(opt_1)
         Reconfigure!(opt_1, estimators, gradients)
     end
     MPI.Bcast!(opt_1.optimizer_cache.∇, 0, mpi_cache.comm)
@@ -50,9 +54,11 @@ function HeunIntegrate!(y::Array, δ::Float64, optimizer::TDVP{T}, mpi_cache) wh
     opt_2.mpo.A += δ*k1
     NormalizeMPO!(opt_2.params, opt_2)
     TensorComputeGradient!(opt_2)
+    #center_∂MPO!(opt_2)
     estimators, gradients = MPI_mean!(opt_2, mpi_cache)
     if mpi_cache.rank == 0
         Finalize!(opt_2)
+        #center_∂MPO!(opt_2)
         Reconfigure!(opt_2, estimators, gradients)
     end
     MPI.Bcast!(opt_2.optimizer_cache.∇, 0, mpi_cache.comm)

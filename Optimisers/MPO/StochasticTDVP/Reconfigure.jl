@@ -54,6 +54,7 @@ function Reconfigure!(optimizer::TDVP{ComplexF64}, local_estimators::Vector{Comp
 
     # Obtain gradient vector:
     grad = (data.L∂L)/N_MC
+    #grad = (data.L∂L - data.ΔLL*data.mlL)/N_MC
     flat_grad = reshape(grad, prod(size(grad)))
 
     σ, _ = eigen(data.S)

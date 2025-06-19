@@ -63,3 +63,30 @@ function ∂MPO(sample::Projector, L_set::Vector{<:Matrix{T}}, R_set::Vector{<:M
     end
     return cache.∂
 end
+
+"""
+function center_∂MPO!(cache::Workspace, params::Parameters, mpo::MPO)
+    # cache.∂ is assumed to be a 4D array with dimensions
+    # (uc_size, χ, χ, d) where d is the derivative index
+    derv = cache.∂
+    uc_size, χ, _, dsize = size(derv)
+    # For each block corresponding to the n-th operator and a particular derivative channel,
+    # subtract the trace part so that the block becomes traceless.
+    for n in 1:uc_size
+        # It is efficient to create the identity outside the inner loop.
+        Iχ = Matrix{eltype(derv)}(I, χ, χ)
+        for k in 1:dsize
+            # Get a view of the (χ x χ) derivative matrix.
+            D = @view derv[n, :, :, k]
+            # Compute the trace
+            tr_D = tr(D)
+            # Subtract the trace contribution:
+            # Note: (tr_D/χ)*Iχ is the component of D proportional to the identity.
+            D .-= (tr_D/χ)*Iχ
+        end
+    end
+    # Normalize the MPO (using the NormalizeMPO! function defined elsewhere)
+    NormalizeMPO!(mpo)
+    return derv
+end
+"""

@@ -146,8 +146,6 @@ function Base.display(opt::TDVPl2)
     println("ϵ_tol\t\t", opt.ϵ_tol)
 end
 
-export TDVP
-
 function TDVP(sampler::MetropolisSampler, mpo::MPO{T}, l1::Matrix{T}, l2::Array{T}, τ::Float64, ϵ_shift::Float64, ϵ_SNR::Float64, ϵ_tol::Float64, params::Parameters, ising_int::String) where {T<:Complex{<:AbstractFloat}} 
     if ising_int=="Ising" 
         optimizer = TDVPl2(mpo, sampler, TDVPCache(mpo.A, params), l1, l2, Ising(), LocalDephasing(), params, τ, ϵ_shift, ϵ_SNR, ϵ_tol, set_workspace(mpo.A, params))
@@ -164,6 +162,66 @@ end
 function Base.deepcopy(opt::TDVPl2, N_MC_H::Int64)
     Heun_sampler = MetropolisSampler(N_MC_H, 0, opt.sweeps, opt.params) 
     return TDVPl2(deepcopy(opt.mpo), Heun_sampler, opt.optimizer_cache, opt.l1, opt.l2, opt.ising_op, opt.dephasing_op, opt.params, opt.τ, opt.ϵ_shift, opt.ϵ_SNR, opt.ϵ_tol, opt.workspace)
+end
+
+mutable struct TDVPXYZ{T<:Complex{<:AbstractFloat}} <: TDVP{T}
+
+    #MPO:
+    mpo::MPO{T}
+
+    #Sampler:
+    sampler::MetropolisSampler
+
+    #Optimizer:
+    optimizer_cache::TDVPCache{T}#Union{ExactCache{T},Nothing}
+
+    #1-local Lindbladian:
+    l1::Matrix{T}
+    l2::Array{T}
+
+    #Diagonal operators:
+    ising_op::IsingInteraction
+    dephasing_op::Dephasing
+
+    #Parameters:
+    params::Parameters
+    τ::Float64
+    ϵ_shift::Float64
+    ϵ_SNR::Float64
+    ϵ_tol::Float64
+
+    #Workspace:
+    workspace::Workspace{T}
+end
+
+function Base.display(opt::TDVPXYZ)
+    println("\nOptimizer TDVPXYZ:")
+    println("ising_op\t", opt.ising_op)
+    println("dephasing_op\t", opt.dephasing_op)
+    println("τ\t\t\t", opt.τ)
+    println("ϵ_shift\t\t", opt.ϵ_shift)
+    println("ϵ_SNR\t\t", opt.ϵ_SNR)
+    println("ϵ_tol\t\t", opt.ϵ_tol)
+end
+
+export TDVPXYZ
+
+function TDVPXYZ(sampler::MetropolisSampler, mpo::MPO{T}, l1::Matrix{T}, l2::Array{T}, τ::Float64, ϵ_shift::Float64, ϵ_SNR::Float64, ϵ_tol::Float64, params::Parameters, ising_int::String) where {T<:Complex{<:AbstractFloat}} 
+    if ising_int=="CompetingIsing" 
+        optimizer = TDVPXYZ(mpo, sampler, TDVPCache(mpo.A, params), l1, l2, CompetingIsing(params), LocalDephasing(), params, τ, ϵ_shift, ϵ_SNR, ϵ_tol, set_workspace(mpo.A, params))
+    else
+        error("Unrecognized Ising interaction")
+    end
+    return optimizer
+end
+
+function Base.deepcopy(opt::TDVPXYZ)
+    return TDVPXYZ(deepcopy(opt.mpo), opt.sampler, opt.optimizer_cache, opt.l1, opt.l2, opt.ising_op, opt.dephasing_op, opt.params, opt.τ, opt.ϵ_shift, opt.ϵ_SNR, opt.ϵ_tol, opt.workspace)
+end
+
+function Base.deepcopy(opt::TDVPXYZ, N_MC_H::Int64)
+    Heun_sampler = MetropolisSampler(N_MC_H, 0, opt.sweeps, opt.params) 
+    return TDVPXYZ(deepcopy(opt.mpo), Heun_sampler, opt.optimizer_cache, opt.l1, opt.l2, opt.ising_op, opt.dephasing_op, opt.params, opt.τ, opt.ϵ_shift, opt.ϵ_SNR, opt.ϵ_tol, opt.workspace)
 end
 
 mutable struct TDVP_H{T<:Complex{<:AbstractFloat}} <: TDVP{T}

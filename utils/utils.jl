@@ -58,6 +58,10 @@ function make_two_body_Lindblad_Hamiltonian(A, B)
     return L_H
 end
 
+#(A⊗id)⊗(B⊗id) - (id⊗transpose(A))⊗(id⊗transpose(B))
+
+#(A⊗B)⊗(id⊗id) - (id⊗id)⊗transpose(A⊗B)
+
 #Ising bit-basis:
 function generate_bit_basis(N)#(N::UInt16)
     set::Vector{Vector{Bool}} = [[true], [false]]
