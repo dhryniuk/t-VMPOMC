@@ -14,7 +14,8 @@ mutable struct Workspace{T<:Complex{<:AbstractFloat}}
     Metro_2::Matrix{T}
     C_mat::Matrix{T}
     bra_L_l1::Matrix{T}
-    bra_L_l2::Matrix{T}
+    bra_L_l2_1::Matrix{T}
+    bra_L_l2_2::Matrix{T}
     
     #∂::Array{T,3}
     #Δ::Array{T,3}
@@ -60,6 +61,7 @@ function set_workspace(A::Array{T,4}, params::Parameters) where {T<:Complex{<:Ab
         zeros(T, params.χ,params.χ),
         zeros(T, 1, 4),
         zeros(T, 1, 16),
+        zeros(T, 1, 16),
         zeros(T, params.N, params.χ, params.χ, 4),
         zeros(T, params.N, params.χ, params.χ, 4),
 
@@ -99,6 +101,7 @@ function set_workspace(A::Array{T,3}, params::Parameters) where {T<:Complex{<:Ab
         zeros(T, params.χ,params.χ),
         zeros(T, params.χ,params.χ),
         zeros(T, 1, 4),
+        zeros(T, 1, 16),
         zeros(T, 1, 16),
         zeros(T, params.χ, params.χ, 4),
         zeros(T, params.χ, params.χ, 4),

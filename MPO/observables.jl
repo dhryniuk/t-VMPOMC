@@ -196,3 +196,57 @@ function Nagy_structure_factor(phase::Float64, params::Parameters, mpo::MPO{Comp
     end
     return abs( real( m / (params.N*(params.N-1)) ) )
 end
+
+export find_Schmidt
+
+function find_Schmidt(mpo::MPO{ComplexF64}, params::Parameters)
+    # Extract single-site tensor A (assumed translationally invariant)
+    A = mpo.A
+    χ = params.χ
+    N_half = params.N ÷ 2
+
+    # 1-site transfer tensor E = \sum_s A^s \otimes \bar A^s
+    E = zeros(ComplexF64, χ, χ, χ, χ)
+    @tensor E[a,a',b,b'] := A[1, a, b, s] * conj(A[1, a', b', s])
+
+    # Build E^ℓ by repeated contraction/power
+    for i in 2:N_half
+        E_new = zeros(ComplexF64, χ, χ, χ, χ)
+        @tensor E_new[a,a',b,b'] := E[a,a',c,c'] * E[c,c',b,b']
+        E = E_new
+    end
+
+    # Contract the "bra" and "ket" copy to form the half-chain map M
+    M = zeros(ComplexF64, χ, χ)
+    #@tensor M[a,b] := E[a, c, b, c]
+    @tensor M[a,b] := E[a, c, c, b]
+
+    # Perform SVD to obtain Schmidt coefficients and boundary states
+    svd_res = svd(M)
+    U = svd_res.U
+    S = svd_res.S
+    Vt = svd_res.Vt
+
+    return U, S, Vt
+end
+
+export find_one_site_reduced_smallest_eval
+
+function find_one_site_reduced_smallest_eval(mpo::MPO{ComplexF64}, params::Parameters)
+    # Extract single-site tensor A (assumed translationally invariant)
+    A = mpo.A
+    χ = params.χ
+    N = params.N
+
+    C = reshape(A[1,:,:,:], χ, χ, 2, 2)
+    B = zeros(ComplexF64, χ, χ)
+    @tensor B[a,b] := C[a, b, s, s]
+    for i in 2:N
+        @tensor C[a,b,c,d] := C[a,e,c,d]*B[e,b]
+    end
+    rho = zeros(ComplexF64, 2, 2)
+    @tensor rho[c,d] := C[a,a,c,d]
+
+    evals, _ = eigen(rho)
+    return minimum(abs.(evals))
+end

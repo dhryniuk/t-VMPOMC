@@ -90,3 +90,16 @@ function center_∂MPO!(cache::Workspace, params::Parameters, mpo::MPO)
     return derv
 end
 """
+
+export construct_density_matrix
+
+function construct_density_matrix(mpo::MPO{T}, params::Parameters, basis::Basis) where {T<:Complex{<:AbstractFloat}}
+    # Construct the density matrix from the MPO
+    ρ = zeros(T, 2^params.N, 2^params.N)
+    for (i,ket) in enumerate(basis)
+        for (j,bra) in enumerate(basis)
+            ρ[i,j] = trMPO(params, Projector(ket, bra), mpo)
+        end
+    end
+    return ρ
+end
