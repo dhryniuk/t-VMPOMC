@@ -77,12 +77,12 @@ Cyy4_list = Float64[]
 Czz4_list = Float64[]
 # --- end plotting additions ---
 S_list = Vector{Vector{Float64}}()
+λ_list = Float64[]
 
 last_iteration_step = 1
 
 #Save parameters to file:
-dir = "results/LRIsing_1D_uc$(uc_size)_chi$(χ)_N$(N)_J1$(J1)_α1$(α1)_J2$(J2)_α2$(α2)_hx$(hx)_hz$(hz)_γ$(γ)"
-#dir = "results/LRIsing_1D"
+dir = "results/chi$(χ)_N_MC$(N_MC)_N$(N)_J1$(J1)_α1$(α1)_J2$(J2)_α2$(α2)_hx$(hx)_hz$(hz)_γ$(γ)_ϵ_shift$(ϵ_shift)_ϵ_SNR$(ϵ_SNR)_ϵ_tol$(ϵ_tol)"
 if mpi_cache.rank == 0
     if isdir(dir)==true
         cd(dir)
@@ -113,14 +113,16 @@ if mpi_cache.rank == 0 && last_iteration_step == 1
     display(optimizer)
     close(list_of_parameters)
 
-    mx, my, mz = measure_magnetizations(params, mpo)
-
     list_of_C = open("C.out", "a")
     println(list_of_C, real(optimizer.optimizer_cache.mlL2)/N)
     close(list_of_C)
 
+    mx, my, mz = measure_magnetizations(params, mpo)
+    p = real(tensor_purity(params,mpo))
+    ren_S = -log2(p)/N
+
     list_of_obs = open("obs.out", "a")
-    println(list_of_obs, mx, ",", my, ",", mz)
+    println(list_of_obs, mx, ",", my, ",", mz, ",", ren_S)
     close(list_of_obs)
 
     Cxx = tensor_correlation(1,2,sx,sx,params,mpo) - mx^2
@@ -159,7 +161,21 @@ if mpi_cache.rank == 0 && last_iteration_step == 1
     println(list_of_times, 0.0)
     close(list_of_times)
 
-    # --- plotting additions ---
+    _, S, _ = find_Schmidt(mpo, params)
+
+    list_of_S = open("Schmidt_values.out", "a")
+    println(list_of_S, join(S, ","))
+    close(list_of_S)
+
+    ρ = construct_density_matrix(mpo, params, basis)
+    evals, _ = eigen(ρ)
+    λ = minimum(abs.(evals))
+    push!(λ_list,λ)
+
+    list_of_λ = open("lambda.out", "a")
+    println(list_of_λ, λ)
+    close(list_of_λ)
+
     push!(times_list, 0.0)
     push!(mlL2_list, real(optimizer.optimizer_cache.mlL2)/N)
     push!(mx_list, mx)
@@ -174,14 +190,7 @@ if mpi_cache.rank == 0 && last_iteration_step == 1
     push!(Cxx4_list, Cxx4)
     push!(Cyy4_list, Cyy4)
     push!(Czz4_list, Czz4)
-    # --- end plotting additions ---
-
-    _, S, _ = find_Schmidt(mpo, params)
     push!(S_list, S)
-
-    list_of_S = open("Schmidt_values.out", "a")
-    println(list_of_S, join(S, ","))
-    close(list_of_S)
 end
 
 MPI.Barrier(mpi_cache.comm)
@@ -204,30 +213,23 @@ while current_time<T
         list_of_iter_times = open("iter_times.out", "a")
         println(list_of_iter_times, iter_time)
         close(list_of_iter_times)
-    
-        #save("optimizer.jld", "optimizer", optimizer)
 
         mpo = optimizer.mpo
 
         display(current_time)
-        #display(TraceNorm(mpo.A, optimizer))
 
         _, S, _ = find_Schmidt(mpo, params)
-        push!(S_list, S)
-
-        list_of_S = open("Schmidt_values.out", "a")
-        println(list_of_S, join(S, ","))
-        close(list_of_S)
 
         list_of_C = open("C.out", "a")
         println(list_of_C, real(optimizer.optimizer_cache.mlL2)/N)
         close(list_of_C)
 
         mx, my, mz = measure_magnetizations(params, mpo)
-        p = tensor_purity(params,mpo)
+        p = real(tensor_purity(params,mpo))
+        ren_S = -log2(p)/N
 
         list_of_obs = open("obs.out", "a")
-        println(list_of_obs, mx, ",", my, ",", mz, ",", p)
+        println(list_of_obs, mx, ",", my, ",", mz, ",", ren_S)
         close(list_of_obs)
 
         Cxx = tensor_correlation(1,2,sx,sx,params,mpo) - mx^2
@@ -267,18 +269,25 @@ while current_time<T
         println(list_of_times, current_time)
         close(list_of_times)
 
-        ### Positivity:
-        a = find_one_site_reduced_smallest_eval(mpo, params)
-        display("Smallest eval: ")
-        display(a)
-        #sleep(1)
+        list_of_S = open("Schmidt_values.out", "a")
+        println(list_of_S, join(S, ","))
+        close(list_of_S)
 
         ρ = construct_density_matrix(mpo, params, basis)
         evals, _ = eigen(ρ)
-        display("Density matrix smallest eval: ")
-        display(minimum(abs.(evals)))
+        λ = minimum(abs.(evals))
+        push!(λ_list,λ)
 
-        # --- plotting additions ---
+        list_of_λ = open("lambda.out", "a")
+        println(list_of_λ, λ)
+        close(list_of_λ)
+
+        ### Positivity:
+        #a = find_one_site_reduced_smallest_eval(mpo, params)
+        #display("Smallest eval: ")
+        #display(a)
+        #sleep(1)
+
         push!(times_list, current_time)
         push!(mlL2_list, real(optimizer.optimizer_cache.mlL2)/N)
         push!(mx_list, mx)
@@ -293,6 +302,7 @@ while current_time<T
         push!(Cxx4_list, Cxx4)
         push!(Cyy4_list, Cyy4)
         push!(Czz4_list, Czz4)
+        push!(S_list, S)
 
         if last_iteration_step % 10 == 0
 
@@ -322,8 +332,6 @@ while current_time<T
         savefig(p, "Cyy_4.png")
         p = plot(times_list, Czz4_list, dpi=300, size=(600,400), margin=10Plots.mm, xlabel="Time", ylabel="Czz_4", xtick=:auto, ytick=:auto)
         savefig(p, "Czz_4.png")
-        # --- end plotting additions ---
-
         S_mat = transpose(reduce(hcat, S_list))
         p = plot(times_list, S_mat, dpi=300, size=(600,400), margin=10Plots.mm, xlabel="Time", ylabel="S", xtick=:auto, ytick=:auto, yscale=:log10, ylims=(1e-8, 1.0))
         savefig(p, "sd.png")
