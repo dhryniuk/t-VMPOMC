@@ -200,28 +200,30 @@ end
 export find_Schmidt
 
 function find_Schmidt(mpo::MPO{ComplexF64}, params::Parameters)
-    # Extract single-site tensor A (assumed translationally invariant)
     A = mpo.A
     χ = params.χ
     N_half = params.N ÷ 2
 
-    # 1-site transfer tensor E = \sum_s A^s \otimes \bar A^s
+    # 1-site transfer tensor: separate physical indices for ket (s) and bra (s̄)
     E = zeros(ComplexF64, χ, χ, χ, χ)
-    @tensor E[a,a',b,b'] := A[1, a, b, s] * conj(A[1, a', b', s])
+    @tensor E[a, a', b, b'] := A[1, a, b, s] * conj(A[1, a', b', s])
 
-    # Build E^ℓ by repeated contraction/power
-    for i in 2:N_half
+    # Build E^(N_half) by contracting ket/bra spaces separately
+    for _ in 2:N_half
         E_new = zeros(ComplexF64, χ, χ, χ, χ)
-        @tensor E_new[a,a',b,b'] := E[a,a',c,c'] * E[c,c',b,b']
+        @tensor E_new[a, a', b, b'] := E[a, a', c, c'] * E[c, c', b, b']
         E = E_new
     end
 
-    # Contract the "bra" and "ket" copy to form the half-chain map M
+    # Form matrix M by tracing over auxiliary indices: 
+    # Connect output of left half to input of right half
     M = zeros(ComplexF64, χ, χ)
-    #@tensor M[a,b] := E[a, c, b, c]
-    @tensor M[a,b] := E[a, c, c, b]
+    @tensor M[a, b] := E[a, a', b, a']
 
-    # Perform SVD to obtain Schmidt coefficients and boundary states
+    # Normalize M to account for trace
+    M ./= tr(M)
+
+    # SVD; Schmidt values are singular values of M
     svd_res = svd(M)
     U = svd_res.U
     S = svd_res.S
