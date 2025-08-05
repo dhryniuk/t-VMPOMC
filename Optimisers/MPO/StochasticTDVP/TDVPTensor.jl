@@ -227,7 +227,7 @@ function TensorUpdate!(optimizer::TDVP{T}, sample::Projector, n::Int64) where {T
 
     #Add in Ising interaction terms:
     l_int = IsingInteractionEnergy(optimizer.ising_op, sample, optimizer)
-    #local_L += l_int
+    local_L += l_int
 
     #Update joint ensemble average:
     data.L∂L.+=local_L*conj(ws.Δ)

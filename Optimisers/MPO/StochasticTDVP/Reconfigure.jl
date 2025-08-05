@@ -57,6 +57,22 @@ function Reconfigure!(optimizer::TDVP{ComplexF64}, local_estimators::Vector{Comp
     #grad = (data.L∂L - data.ΔLL*data.mlL)/N_MC
     flat_grad = reshape(grad, prod(size(grad)))
 
+
+
+
+
+
+    #for i in 1:4*params.χ^2*params.uc_size
+    #    flat_grad[i] /= sqrt(data.S[i,i])
+    #    for j in 1:4*params.χ^2*params.uc_size
+    #        data.S[i,j] /= sqrt(data.S[i,i] * data.S[j,j])
+    #    end
+    #end
+
+
+
+
+
     σ, _ = eigen(data.S)
     λ = 2*abs(minimum(real.(σ)))
 

@@ -262,7 +262,8 @@ function TensorSweepLindblad!(sample::Projector, ρ_sample::T, optimizer::TDVPXY
     N       = params.N
     uc_size = params.uc_size
     ws      = optimizer.workspace
-    L2_mat  = reshape(optimizer.l2, 16, 16)   # two‑site Liouvillian
+    L2_mat_1  = reshape(optimizer.l2_1, 16, 16)   # two‑site Liouvillian
+    L2_mat_2  = reshape(optimizer.l2_2, 16, 16)   # two‑site Liouvillian
 
     # ONE‑BODY TERMS
     temp1 = zero(T)
@@ -283,7 +284,7 @@ function TensorSweepLindblad!(sample::Projector, ρ_sample::T, optimizer::TDVPXY
             # determine the distance between sites i and j with periodic boundary conditions
             dist = min(j - i, N - (j - i))
 
-            if dist == 1#params.cutoff_distance
+            if dist <= 4#params.cutoff_distance
 
                 B1 = ws.L_set[i]
                 B2 = ws.R_set[N + 1 - j]
@@ -299,12 +300,15 @@ function TensorSweepLindblad!(sample::Projector, ρ_sample::T, optimizer::TDVPXY
                 s1 = ws.dVEC_transpose[(sample.ket[i], sample.bra[i])]
                 s2 = ws.dVEC_transpose[(sample.ket[j], sample.bra[j])]
                 ws.s .= kron(s1, s2)
-                mul!(ws.bra_L_l2, ws.s, L2_mat)
+                #mul!(ws.bra_L_l2, ws.s, L2_mat)
+                mul!(ws.bra_L_l2_1, ws.s, L2_mat_1)
+                mul!(ws.bra_L_l2_2, ws.s, L2_mat_2)
 
                 # sum over Liouville indices u,v
                 local_sum = zero(T)
                 for u in 1:4, v in 1:4
-                    coeff = ws.bra_L_l2[v + 4*(u-1)] #(params.J1/dist^params.α1 + params.J2/dist^params.α2)
+                    #coeff = ws.bra_L_l2[v + 4*(u-1)] 
+                    coeff = ws.bra_L_l2_1[v + 4*(u-1)] * dist^(-params.α1) + ws.bra_L_l2_2[v + 4*(u-1)] * dist^(-params.α2)
                     if coeff != 0
                         M_i = optimizer.mpo.A[mod1(i, uc_size), :,:, u]
                         M_j = optimizer.mpo.A[mod1(j, uc_size), :,:, v]

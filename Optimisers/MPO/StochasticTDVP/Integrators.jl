@@ -41,6 +41,10 @@ function HeunIntegrate!(y::Array, δ::Float64, optimizer::TDVP{T}, mpi_cache) wh
     TensorComputeGradient!(opt_1)
     #center_∂MPO!(opt_1)
     estimators, gradients = MPI_mean!(opt_1, mpi_cache)
+
+    #display(estimators)
+    #sleep(1000)
+
     if mpi_cache.rank == 0
         Finalize!(opt_1)
         #center_∂MPO!(opt_1)
@@ -56,6 +60,10 @@ function HeunIntegrate!(y::Array, δ::Float64, optimizer::TDVP{T}, mpi_cache) wh
     TensorComputeGradient!(opt_2)
     #center_∂MPO!(opt_2)
     estimators, gradients = MPI_mean!(opt_2, mpi_cache)
+
+    #display(estimators)
+    #sleep(1000)
+
     if mpi_cache.rank == 0
         Finalize!(opt_2)
         #center_∂MPO!(opt_2)
@@ -71,6 +79,9 @@ function HeunIntegrate!(y::Array, δ::Float64, optimizer::TDVP{T}, mpi_cache) wh
     optimizer.optimizer_cache.mlL2 = opt_2.optimizer_cache.mlL2
 
     optimizer.optimizer_cache.S = opt_2.optimizer_cache.S
+
+    #display(optimizer.optimizer_cache.mlL2)
+    #sleep(1000)
 
     return y, optimizer
 end
