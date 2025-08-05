@@ -8,6 +8,9 @@ using Random
 using MPI
 using Statistics
 
+using MPIPreferences
+MPIPreferences.use_jll_binary("OpenMPI_jll")
+
 
 #Basic utilities:
 include("utils/projector.jl")
